@@ -8,6 +8,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { UserContext } from '../screens/UserContext';
+import { useNavigation } from '@react-navigation/native';
 
 const EstimationScreen = () => {
     const BASE_URL = 'https://est.brightechsoftware.com/api/v1';
@@ -17,6 +18,7 @@ const EstimationScreen = () => {
     const [error, setError] = useState(false);
     const [rateUpdated, setRateUpdated] = useState(null);
     const { username } = useContext(UserContext);
+    const navigation = useNavigation();
 
     const formatDate = (date) => date.toLocaleDateString('en-GB');
 
@@ -80,8 +82,8 @@ const EstimationScreen = () => {
 
             {/* Buttons */}
             <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.button} onPress={() => { }}>
-                    <Text style={styles.buttonText}>🛒 Sales</Text>
+                <TouchableOpacity style={styles.button} onPress={() => { navigation.navigate('Homescreen1'); }}>
+                    <Text style={styles.buttonText}>🛒 Rate Viewer</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.button, styles.refreshButton]} onPress={fetchRates}>

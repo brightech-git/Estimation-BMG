@@ -8,6 +8,7 @@ import axios from 'axios';
 import EstimationScreen from './EstimationScreen';
 import { UserContext } from '../screens/UserContext';
 import { useContext } from 'react';
+import Footer from '../Src/Components/Footer/Footer'
 
 import { Modal} from 'react-native';
 import BarcodeScannerModal from './BarcodeScannerModal';
@@ -772,6 +773,7 @@ const HomeScreen = () => {
 
 
         return (
+            <>
             <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
                 {/* 📊 Estimation Card */}
                 <EstimationScreen />
@@ -1032,11 +1034,10 @@ const HomeScreen = () => {
                 >
                     <Text style={styles.submitButtonText}>Print</Text>
                 </TouchableOpacity>
-
-
-
-
             </ScrollView>
+              <Footer />
+            </>
+          
         );
     };
 
@@ -1216,10 +1217,4 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
 });
-
-
-
-
-
-
 export default HomeScreen;

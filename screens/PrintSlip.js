@@ -1,21 +1,21 @@
-import axios from 'axios';
-import { Alert } from 'react-native';
-import * as Print from 'expo-print';
+import axios from "axios";
+import { Alert } from "react-native";
+import * as Print from "expo-print";
 
 export const formatDate = (dateString) => {
-  if (!dateString) return '';
+  if (!dateString) return "";
   const date = new Date(dateString);
   if (isNaN(date)) return dateString;
-  return date.toLocaleDateString('en-GB');
+  return date.toLocaleDateString("en-GB");
 };
 
 const getCurrentTime = () => {
   const now = new Date();
-  return now.toLocaleTimeString('en-IN', {
+  return now.toLocaleTimeString("en-IN", {
     hour12: true,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 };
 
@@ -43,17 +43,17 @@ const mergeItems = (items) => {
 
 export const PrintSlip = async (estBatchNo, username) => {
   if (!estBatchNo) {
-    Alert.alert('Error', 'No Estimation No found for printing.');
+    Alert.alert("Error", "No Estimation No found for printing.");
     return;
   }
 
-  const api = axios.create({ baseURL: 'https://est.bmgjewellers.com/api/v1' });
+  const api = axios.create({ baseURL: "https://est.bmgjewellers.com/api/v1" });
 
   try {
     const response = await api.get(`/printDetails/${estBatchNo}`);
     const itemsRaw = Array.isArray(response.data) ? response.data : [];
     if (!itemsRaw.length) {
-      Alert.alert('Error', 'No data found for this Estimation.');
+      Alert.alert("Error", "No data found for this Estimation.");
       return;
     }
 
@@ -63,16 +63,19 @@ export const PrintSlip = async (estBatchNo, username) => {
     // Fetch offer via POST
     let offer = { discount: 0, netwt: 0, board_rate: 0 };
     try {
-      const offerRes = await api.post('/offer', null, { params: { tagno: sample.tagno } });
+      const offerRes = await api.post("/offer", null, {
+        params: { tagno: sample.tagno },
+      });
       offer = offerRes.data || offer;
     } catch (err) {
-      console.warn('Failed to fetch offer:', err);
+      console.warn("Failed to fetch offer:", err);
     }
 
     // Fetch today rates
-    let goldRate = 0, silverRate = 0;
+    let goldRate = 0,
+      silverRate = 0;
     try {
-      const rateRes = await api.get('/todayrate');
+      const rateRes = await api.get("/todayrate");
       goldRate = rateRes.data?.GOLDRATE || 0;
       silverRate = rateRes.data?.SILVERRATE || 0;
     } catch {
@@ -88,9 +91,9 @@ export const PrintSlip = async (estBatchNo, username) => {
     let sgstAmount = 0;
     items.forEach((item) => {
       (item.taxes || []).forEach((tax) => {
-        const taxId = (tax.tax_id || '').toUpperCase();
-        if (taxId === 'CG') cgstAmount += tax.tax_amount || 0;
-        else if (taxId === 'SG') sgstAmount += tax.tax_amount || 0;
+        const taxId = (tax.tax_id || "").toUpperCase();
+        if (taxId === "CG") cgstAmount += tax.tax_amount || 0;
+        else if (taxId === "SG") sgstAmount += tax.tax_amount || 0;
       });
     });
 
@@ -98,60 +101,70 @@ export const PrintSlip = async (estBatchNo, username) => {
 
     const fetchStonesForItem = async (itemid, tagno) => {
       try {
-        const res = await api.get('/stnInputs', { params: { itemid, tagno } });
+        const res = await api.get("/stnInputs", { params: { itemid, tagno } });
         return Array.isArray(res.data) ? res.data : [];
       } catch (err) {
-        console.warn(`Failed to fetch stones for ITEMID=${itemid} TAGNO=${tagno}`, err);
+        console.warn(
+          `Failed to fetch stones for ITEMID=${itemid} TAGNO=${tagno}`,
+          err
+        );
         return [];
       }
     };
 
     // Build item rows
-    const itemRowsArr = await Promise.all(items.map(async (item, idx) => {
-      const itemName = (item.itemname || '').toUpperCase();
-      const itemNumber = idx + 1;
-      const stones = await fetchStonesForItem(item.itemid, item.tagno);
-      // console.log(`Fetched stones for ITEMID=${item.amount} TAGNO=${item.tagno}:`, stones);
-      const rows = [];
+    const itemRowsArr = await Promise.all(
+      items.map(async (item, idx) => {
+        const itemName = (item.itemname || "").toUpperCase();
+        const itemNumber = idx + 1;
+        const stones = await fetchStonesForItem(item.itemid, item.tagno);
+        // console.log(`Fetched stones for ITEMID=${item.amount} TAGNO=${item.tagno}:`, stones);
+        const rows = [];
 
-      // Main item row
-      rows.push(`
+        // Main item row
+        rows.push(`
         <tr>
-          <td colspan="4"><b>${itemNumber} ${itemName} (${item.pcs} Pcs) [${item.itemid}-${item.tagno}]</b></td>
+          <td colspan="4"><b>${itemNumber} ${itemName} (${item.pcs} Pcs) [${
+          item.itemid
+        }-${item.tagno}]</b></td>
         </tr>
         <tr>
   <td width="40%">Rate</td>
   <td width="20%" align="right">${(item.grswt || 0).toFixed(3)}</td>
-  <td width="20%" align="right">${item.wastper && item.wastper > 0 ? item.wastper.toFixed(1) : ''}</td>
+  <td width="20%" align="right">${
+    item.wastper && item.wastper > 0 ? item.wastper.toFixed(1) : ""
+  }</td>
   <td width="20%" align="right">${(item.amount || 0).toFixed(0)}</td>
 </tr>
 
       `);
 
-      // Net weight row if different
-      if (item.grswt !== item.netwt) {
-        rows.push(`
+        // Net weight row if different
+        if (item.grswt !== item.netwt) {
+          rows.push(`
           <tr>
             <td colspan="4"><b>Netwt:</b> ${(item.netwt || 0).toFixed(3)}</td>
           </tr>
         `);
-      }
+        }
 
-      // Stones
-      stones.forEach(stone => {
-        rows.push(`
+        // Stones
+        stones.forEach((stone) => {
+          rows.push(`
           <tr>
             <td>STUDDED</td>
-            <td align="right">${stone.stnwt?.toFixed(3) || 0}${stone.stoneunit || ''}</td>
+            <td align="right">${stone.stnwt?.toFixed(3) || 0}${
+            stone.stoneunit || ""
+          }</td>
             <td align="right"></td>
             <td align="right">${stone.stnamt?.toFixed(0) || 0}</td>
           </tr>
         `);
-      });
+        });
 
-      // MC row if exists
-      if (item.mcgrm) {
-        rows.push(`
+        // MC row if exists
+        if (item.mcgrm) {
+          rows.push(`
           <tr>
             <td>MC:</td>
             <td align="right"></td>
@@ -159,21 +172,22 @@ export const PrintSlip = async (estBatchNo, username) => {
             <td align="right">${item.mcgrm?.toFixed(0)}</td>
           </tr>
         `);
-      }
+        }
 
-      // Subitem names
-      stones.forEach(stone => {
-        rows.push(`
+        // Subitem names
+        stones.forEach((stone) => {
+          rows.push(`
           <tr>
-            <td colspan="4">${item.subitemname?.toUpperCase() || ''}</td>
+            <td colspan="4">${item.subitemname?.toUpperCase() || ""}</td>
           </tr>
         `);
-      });
+        });
 
-      return rows.join('');
-    }));
+        return rows.join("");
+      })
+    );
 
-    const itemRows = itemRowsArr.join('');
+    const itemRows = itemRowsArr.join("");
 
     const offerWeight = offer.netwt || 0;
     const offerBoardRate = offer.board_rate || 0;
@@ -207,7 +221,9 @@ b { font-weight:bold; }
 <table>
   <tr>
     <td><b>ESTIMATION SLIP</b></td>
-    <td align="right"><b>Est.No :</b> ${sample.tranno || ''} - ${sample.company_id || 'BMG'}</td>
+    <td align="right"><b>Est.No :</b> ${sample.tranno || ""} - ${
+      sample.company_id || "BMG"
+    }</td>
   </tr>
   <tr>
     <td><b>Date :</b> ${formatDate(sample.trandate)}</td>
@@ -248,11 +264,17 @@ b { font-weight:bold; }
 
  
 
-  ${offerDiscount > 0 ? `
+  ${
+    offerDiscount > 0
+      ? `
   <tr>
-    <td colspan="3"><b>Offer (${offerWeight.toFixed(3)} * ${offerBoardRate})</b></td>
+    <td colspan="3"><b>Offer (${offerWeight.toFixed(
+      3
+    )} * ${offerBoardRate})</b></td>
     <td align="right">${offerDiscount.toFixed(1)}</td>
-  </tr>` : ''}
+  </tr>`
+      : ""
+  }
 
  
   <tr>
@@ -276,8 +298,9 @@ b { font-weight:bold; }
 
 <table>
   <tr>
-    <td><b>[${username || ''}]</b></td>
-    <td align="right"><b>Est.No : ${sample.tranno || ''}</b></td>
+   <td><b>[BMG]</b></td>
+
+    <td align="right"><b>Est.No : ${sample.tranno || ""}</b></td>
   </tr>
 </table>
 
@@ -287,9 +310,8 @@ b { font-weight:bold; }
     `;
 
     await Print.printAsync({ html: htmlContent });
-
   } catch (error) {
-    console.error('Print error:', error);
-    Alert.alert('Error', 'Failed to fetch or print slip.');
+    console.error("Print error:", error);
+    Alert.alert("Error", "Failed to fetch or print slip.");
   }
 };

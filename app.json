@@ -28,9 +28,12 @@
     },
     "extra": {
       "eas": {
-        "projectId": "010217e2-330a-4671-8c1b-8d7904980382"
+        "projectId": "0f84c655-d461-41d3-b9a6-6aafc1f74dc9"
       }
     },
-    "owner": "jk_08"
+    "owner": "suresh11",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
