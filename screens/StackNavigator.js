@@ -10,6 +10,7 @@ import LoginScreen from "./LoginScreen";
 import HomeScreen from "./HomeScreen";
 import Homescreen1 from "../Src/Screens/Home/Home";
 import { UserProvider } from "./UserContext";
+import PrintScreen from "./Print/PrintMain";
 
 const Stack = createNativeStackNavigator();
 
@@ -74,6 +75,11 @@ export default function StackNavigator() {
             <Stack.Screen
               name="Homescreen1"
               component={Homescreen1}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Print"
+              component={PrintScreen}
               options={{ headerShown: false }}
             />
           </Stack.Navigator>

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-
 import {
     View, Text, TextInput, ScrollView, StyleSheet,
     ActivityIndicator, Alert, FlatList, TouchableOpacity
@@ -9,16 +8,13 @@ import EstimationScreen from './EstimationScreen';
 import { UserContext } from '../screens/UserContext';
 import { useContext } from 'react';
 import Footer from '../Src/Components/Footer/Footer'
-
-import { Modal} from 'react-native';
+import { Modal } from 'react-native';
 import BarcodeScannerModal from './BarcodeScannerModal';
-import { PrintSlip } from './PrintSlip';
+import { printEstimationSlip, useEstimationPreview } from './PrintSlip'; // Updated import
 
 const api = axios.create({
     baseURL: 'https://est.bmgjewellers.com/api/v1'
 });
-
-
 
 const HomeScreen = () => {
     const [ITEMID, setITEMID] = useState('');
@@ -30,54 +26,34 @@ const HomeScreen = () => {
     const [showList, setShowList] = useState(false);
     const { userId } = useContext(UserContext);
     const [empID, setEmpID] = useState(null);
-    const [empList, setEmpList] = useState([]); // to hold array of employees
-    const [selectedEmpID, setSelectedEmpID] = useState(null); // to hold chosen EMPID
-    const [tranno, setTranno] = useState(null); // ✅ ADD THIS LINE
+    const [empList, setEmpList] = useState([]);
+    const [selectedEmpID, setSelectedEmpID] = useState(null);
+    const [tranno, setTranno] = useState(null);
     const [filteredEmpList, setFilteredEmpList] = useState([]);
     const [showEmpList, setShowEmpList] = useState(false);
     const itemIdInputRef = useRef(null);
     const tagInputRef = useRef(null);
     const empInputRef = useRef(null);
     const [hasPermission, setHasPermission] = useState(null);
-    const [scanningField, setScanningField] = useState(null); // 'itemid' or 'tagno'
+    const [scanningField, setScanningField] = useState(null);
     const [scannerVisible, setScannerVisible] = useState(false);
     const [estBatchNo, setEstBatchNo] = useState(null);
     const { username } = useContext(UserContext);
 
-   
-    
+    // Add print preview hook
+    const { EstimationPreviewComponent } = useEstimationPreview();
 
     useEffect(() => {
         itemIdInputRef.current?.focus();
     }, []);
 
-
-    // const handleScanned = (field, data) => {
-    //     if (field === 'itemid') setITEMID(data);
-    //     else if (field === 'tagno') setTAGNO(data);
-    //   };
-
-    // const handleScanned = (field, data) => {
-    //     if (field === 'itemid') {
-    //         setITEMID(data);
-    //         tagInputRef.current?.focus();
-    //     } else if (field === 'tagno') {
-    //         setTAGNO(data);
-    //         empInputRef.current?.focus();
-    //     }
-    // };
-
     const handleScanned = (field, data) => {
-        // Check if data is in the format "22-165"
         if (data.includes('-')) {
             const [item, tag] = data.split('-');
-
             setITEMID(item);
             setTAGNO(tag);
-
-            empInputRef.current?.focus();  // Jump to Emp field
+            empInputRef.current?.focus();
         } else {
-            // fallback if scanning separately
             if (field === 'itemid') {
                 setITEMID(data);
                 tagInputRef.current?.focus();
@@ -106,10 +82,6 @@ const HomeScreen = () => {
         }
     };
 
-
-
-
-
     const fetchData = async () => {
         if (!ITEMID.trim() || !TAGNO.trim() || !emp.trim()) {
             Alert.alert('Missing Input', 'Please enter valid Item ID, Tag No, and Employee.');
@@ -125,7 +97,6 @@ const HomeScreen = () => {
         setLoading(true);
 
         try {
-            // 🔍 1. Check if already issued (same as current logic)
             let tagDetails = null;
             try {
                 const checkResponse = await api.get(`/tag-details`, { params: { ITEMID, TAGNO } });
@@ -139,7 +110,6 @@ const HomeScreen = () => {
                 return;
             }
 
-            // 🔍 2. Check if item already exists in the grid (like your .NET logic)
             const alreadyExists = tableData.some(row =>
                 row.ITEMID === itemIdInt && row.TAGNO === TAGNO && row.EMPID === emp
             );
@@ -149,7 +119,6 @@ const HomeScreen = () => {
                 return;
             }
 
-            // ✅ 3. Fetch and add new estimation rows
             const response = await api.get('/estimationTotal', {
                 params: { ITEMID, TAGNO }
             });
@@ -169,10 +138,8 @@ const HomeScreen = () => {
                 METALID: d.METALID || 0
             }));
 
-            // ✅ 4. Append non-duplicate new records
             setTableData(prev => [...prev, ...newData]);
 
-            // 🔄 5. Reset fields
             setITEMID('');
             setTAGNO('');
             setEmp('');
@@ -253,7 +220,7 @@ const HomeScreen = () => {
 
     const fetchEstBatchNo = async () => {
         try {
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const today = new Date().toISOString().split('T')[0];
             const response = await api.get('/estbatchno', {
                 params: {
                     costId: 'FL',
@@ -263,46 +230,16 @@ const HomeScreen = () => {
                 }
             });
             return response.data;
-            console.log('ESTBATCHNO Response:', response.data);
         } catch (error) {
             console.warn('Failed to fetch ESTBATCHNO:', error.message);
             return null;
         }
     };
+
     const totalGross = tableData.reduce((acc, row) => acc + calculateGrossAmount(row), 0);
     const totalGST = tableData.reduce((acc, row) => acc + calculateGST(row), 0);
     const totalGrand = tableData.reduce((acc, row) => acc + calculateGrandTotal(row), 0);
 
-
-    // useEffect(() => {
-    //     const fetchEmpList = async () => {
-    //         try {
-    //             const response = await axios.get('https://est.bmgjewellers.com/api/v1/empID');
-    //             setEmpList(response.data); // array of employee objects
-    //         } catch (error) {
-    //             console.error('Failed to fetch emp list:', error);
-    //         }
-    //     };
-    //     fetchEmpList();
-    // }, []);
-
-    const cleanObject = (obj) => {
-        // Return new object excluding keys with null or undefined values
-        return Object.fromEntries(
-            Object.entries(obj).filter(([_, v]) => v !== null && v !== undefined)
-        );
-    };
-
-    {
-        tableData.length > 0 && (
-            <View style={{ marginTop: 20, padding: 10, backgroundColor: '#f3f3f3', borderRadius: 8 }}>
-                {/* <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#4a148c' }}>Current Total:</Text> */}
-                <Text style={{ fontSize: 15, color: '#000' }}>Gross Amount: ₹{totalGross.toFixed(2)}</Text>
-                <Text style={{ fontSize: 15, color: '#000' }}>GST Amount: ₹{totalGST.toFixed(2)}</Text>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#000' }}>Grand Total: ₹{totalGrand.toFixed(2)}</Text>
-            </View>
-        )
-    }
     const submitData = async () => {
         console.log('Submitting data:', tableData);
         if (tableData.length === 0) {
@@ -313,20 +250,20 @@ const HomeScreen = () => {
         try {
             setLoading(true);
 
-            // Step 1: Get TRANNO from backend
             const trannoResponse = await api.get('/tranno');
             console.log('TRANNO Response:', trannoResponse.data);
             const TRANNO = trannoResponse.data;
             if (!TRANNO) throw new Error("Failed to get TRANNO");
 
-            // Step 2: Fetch ESTBATCHNO helper function
             const estBatchNo = await fetchEstBatchNo();
             if (!estBatchNo) {
                 Alert.alert('Error', 'Could not retrieve ESTBATCHNO');
                 return;
             }
 
-            // --- Date helpers ---
+            // ... rest of your submitData function remains the same ...
+            // (keeping all the existing logic for data processing and API calls)
+
             const formatDateToSqlDateTime = (dateInput) => {
                 const dt = dateInput ? new Date(dateInput) : new Date();
                 if (isNaN(dt)) return null;
@@ -715,137 +652,75 @@ const HomeScreen = () => {
 
             await api.post('/estprint', estPrintPayload);
 
-            Alert.alert("Success", `Sales Estimation No: ${TRANNO} Generated`);
+           Alert.alert("Success", `Sales Estimation No: ${TRANNO} Generated`);
             setTranno(TRANNO);
+            setEstBatchNo(estBatchNo); // Save batch number for printing
             setTableData([]);
 
-            return batchNo;   // ✅ instead of true
+            return estBatchNo;
 
         } catch (error) {
             Alert.alert("Error", error.response?.data?.message || error.message || "Something went wrong.");
             console.error("Submitting error:", error);
-            return false;  // 👈 ensure false on error
+            return false;
         } finally {
             setLoading(false);
         }
     };
 
+    // New function to handle printing
+const handlePrint = async () => {
+  console.log('Print button clicked, estBatchNo:', estBatchNo);
+  if (!estBatchNo) {
+    Alert.alert("No slip available", "Please submit first to generate a slip");
+    return;
+  }
 
+  try {
+    console.log('Calling printEstimationSlip with:', estBatchNo, username);
+    await printEstimationSlip(estBatchNo, username);
+  } catch (err) {
+    console.error("Print error:", err);
+    Alert.alert("Print Failed", "Unable to generate slip");
+  }
+};
 
-
-
-    // <TextInput
-    //     style={[styles.inlineInput, { minWidth: 200 }]}
-    //     placeholder="Search Employee"
-    //     value={emp}
-    //     onChangeText={(text) => {
-    //         setEmp(text);
-    //         const filtered = empList.filter(empItem =>
-    //             empItem.EMPNAME.toLowerCase().includes(text.toLowerCase()) ||
-    //             empItem.EMPID.toString().includes(text)
-    //         );
-    //         setFilteredEmpList(filtered);
-    //         setShowEmpList(true);
-    //     }}
-    // />
-
-    // {
-    //     showEmpList && (
-    //         <View style={styles.dropdown}>
-    //             <FlatList
-    //                 data={filteredEmpList}
-    //                 keyExtractor={(item) => item.EMPID.toString()}
-    //                 renderItem={({ item }) => (
-    //                     <TouchableOpacity
-    //                         onPress={() => {
-    //                             setEmp(item.EMPNAME);
-    //                             setSelectedEmpID(item.EMPID);
-    //                             setShowEmpList(false);
-    //                         }}
-    //                     >
-    //                         <Text style={styles.dropdownItem}>{item.EMPNAME}</Text>
-    //                     </TouchableOpacity>
-    //                 )}
-    //             />
-    //         </View>
-    //     )
-    // }
-
-
-        return (
-            <>
+    return (
+        <>
             <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
                 {/* 📊 Estimation Card */}
                 <EstimationScreen />
 
-                {/* {tableData.length > 0 && (
-                    <View style={styles.totalsCard}>
-                        <Text style={styles.totalsTitle}>Current Totals</Text>
+                {/* Totals Display */}
+                {tableData.length > 0 && (
+                    <View style={styles.totalsContainer}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                            <View style={{ alignItems: 'center' }}>
+                                <Text style={{ fontSize: 13, color: '#555' }}>Gross Amount</Text>
+                                <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>
+                                    ₹{totalGross.toFixed(2)}
+                                </Text>
+                            </View>
 
-                        <Text style={styles.labelText}>
-                            Gross Total: <Text style={styles.amountText}>₹{totalGross.toFixed(2)}</Text>
-                        </Text>
+                            <View style={{ alignItems: 'center' }}>
+                                <Text style={{ fontSize: 13, color: '#555' }}>GST Amount</Text>
+                                <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>
+                                    ₹{totalGST.toFixed(2)}
+                                </Text>
+                            </View>
 
-                        <Text style={styles.labelText}>
-                            GST Total: <Text style={styles.amountText}>₹{totalGST.toFixed(2)}</Text>
-                        </Text>
-
-                        <Text style={[styles.labelText, { fontWeight: '600' }]}>
-                            Grand Total: <Text style={styles.amountText}>₹{totalGrand.toFixed(2)}</Text>
-                        </Text>
-                    </View>
-                )} */}
-
-                {
-                    tableData.length > 0 && (
-                        <View
-                            style={{
-                                
-                                backgroundColor: '#f3f3f3',
-                                borderRadius: 8,
-                                padding: 10,
-                                marginBottom: 10   // 👈 space after totals box
-                            }}
-                        >
-                            {/* <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#4a148c', marginBottom: 8 }}>
-                                Current Total:
-                            </Text> */}
-
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-                                {/* Gross Amount */}
-                                <View style={{ alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 13, color: '#555' }}>Gross Amount</Text>
-                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>
-                                        ₹{totalGross.toFixed(2)}
-                                    </Text>
-                                </View>
-
-                                {/* GST Amount */}
-                                <View style={{ alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 13, color: '#555' }}>GST Amount</Text>
-                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>
-                                        ₹{totalGST.toFixed(2)}
-                                    </Text>
-                                </View>
-
-                                {/* Grand Total */}
-                                <View style={{ alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 13, color: '#555' }}>Grand Total</Text>
-                                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#000' }}>
-                                        ₹{totalGrand.toFixed(2)}
-                                    </Text>
-                                </View>
+                            <View style={{ alignItems: 'center' }}>
+                                <Text style={{ fontSize: 13, color: '#555' }}>Grand Total</Text>
+                                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#000' }}>
+                                    ₹{totalGrand.toFixed(2)}
+                                </Text>
                             </View>
                         </View>
-                    )
-                }
-
-
-
+                    </View>
+                )}
 
                 {/* 📥 Input Fields */}
                 <View style={styles.inputRow}>
-                    {/* Item ID */}
                     <View style={styles.inputWrapper}>
                         <TextInput
                             ref={itemIdInputRef}
@@ -872,7 +747,6 @@ const HomeScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Tag No */}
                     <View style={styles.inputWrapper}>
                         <TextInput
                             ref={tagInputRef}
@@ -893,7 +767,6 @@ const HomeScreen = () => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Emp ID */}
                     <View style={styles.inputWrapper}>
                         <TextInput
                             ref={empInputRef}
@@ -906,7 +779,6 @@ const HomeScreen = () => {
                         />
                     </View>
                 </View>
-
 
                 {/* 🔽 Dropdown (Item Suggestions) */}
                 {showList && itemList.length > 0 && (
@@ -932,12 +804,10 @@ const HomeScreen = () => {
                 {/* ⏳ Loader */}
                 {loading && <ActivityIndicator size="large" color="#7b1fa2" style={{ marginVertical: 20 }} />}
 
-                
-
+                {/* Data Table */}
                 {tableData.length > 0 && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                         <View>
-                            {/* Header Row */}
                             <View style={styles.headerRow}>
                                 {[
                                     'Item ID', 'Tag No', 'Pcs', 'Grswt', 'NetWt', 'Rate', 'Wastage',
@@ -947,7 +817,6 @@ const HomeScreen = () => {
                                 ))}
                             </View>
 
-                            {/* Data Rows */}
                             {tableData.map((item, rowIdx) => (
                                 <View key={rowIdx} style={styles.dataRow}>
                                     <Text style={styles.cell}>{item.ITEMID ?? 'N/A'}</Text>
@@ -970,7 +839,6 @@ const HomeScreen = () => {
                     </ScrollView>
                 )}
 
-
                 {/* 🔢 Transaction Number */}
                 {tranno && (
                     <Text style={styles.trannoText}>
@@ -986,61 +854,36 @@ const HomeScreen = () => {
                     onScanned={handleScanned}
                 />
 
-                {/* <TouchableOpacity style={styles.submitButton} onPress={submitData}>
-                    <Text style={styles.submitButtonText}>Submit</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.printButton} onPress={() => PrintSlip(estBatchNo, username)}>
-                    <Text style={styles.printButtonText}>Print</Text>
-                </TouchableOpacity> */}
-
+                {/* Action Buttons */}
                 <TouchableOpacity
                     style={styles.submitButton}
                     onPress={async () => {
-                        const batchNo = await submitData();  // returns batchNo
-                        if (!batchNo) {
-                            Alert.alert("Estimation No not found", "Cannot print slip");
-                            return;
-                        }
-                        setEstBatchNo(batchNo); // save to state
-                        console.log('ESTBATCHNO:', batchNo);
-                        try {
-                            await PrintSlip(batchNo, username);
-                        } catch (err) {
-                            console.error("Print error:", err);
-                            Alert.alert("Print Failed", "Unable to generate slip");
+                        const batchNo = await submitData();
+                        if (batchNo) {
+                            setEstBatchNo(batchNo);
+                            console.log('ESTBATCHNO:', batchNo);
+                            // Removed auto-print here
                         }
                     }}
                 >
                     <Text style={styles.submitButtonText}>Submit</Text>
                 </TouchableOpacity>
 
-                {/* New Print Button */}
+                {/* Print Button */}
                 <TouchableOpacity
-                    style={[styles.submitButton, { backgroundColor: "#7b1fa2" }]}
-                    onPress={async () => {
-                        if (!estBatchNo) {
-                            Alert.alert("No slip available", "Please submit first to generate a slip");
-                            return;
-                        }
-
-                        try {
-                            await PrintSlip(estBatchNo, username);
-                        } catch (err) {
-                            console.error("Print error:", err);
-                            Alert.alert("Print Failed", "Unable to generate slip");
-                        }
-                    }}
+                    style={[styles.submitButton, { backgroundColor: "#4a148c" }]}
+                    onPress={handlePrint}
                 >
-                    <Text style={styles.submitButtonText}>Print</Text>
+                    <Text style={styles.submitButtonText}>Print Slip</Text>
                 </TouchableOpacity>
-            </ScrollView>
-              <Footer />
-            </>
-          
-        );
-    };
 
+                {/* Print Preview Component */}
+                {EstimationPreviewComponent}
+            </ScrollView>
+            <Footer />
+        </>
+    );
+};
 
 const styles = StyleSheet.create({
     container: {
@@ -1092,104 +935,11 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         color: '#4a148c',
     },
-    totalsCard: {        // renamed from totalsContainer
-        marginVertical: 16,
-        padding: 12,
+    totalsContainer: {
         backgroundColor: '#f3f3f3',
         borderRadius: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    totalsTitle: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#4a148c',
-        marginBottom: 6,
-    },
-    totalText: {
-        fontSize: 10,
-        color: '#000',
-    },
-    grandTotal: {
-        fontWeight: '600',
-    },
-    verticalTable: {
-        marginTop: 12,
-        backgroundColor: '#f3f3f3',
-        borderRadius: 8,
-        padding: 8,
-    },
-    verticalRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    fieldTitle: {
-        width: 100,
-        fontWeight: 'bold',
-        fontSize: 13,
-        color: '#4a148c',
-    },
-    fieldValue: {
-        minWidth: 70,
-        marginHorizontal: 6,
-        fontSize: 13,
-        textAlign: 'center',
-        color: '#000',
-        backgroundColor: '#fff',
-        borderRadius: 4,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        borderWidth: 1,
-        borderColor: '#e1bee7',
-    },
-    trannoText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#4a148c',
-        marginTop: 12,
-    },
-    submitButton: {
-        backgroundColor: '#7b1fa2',
-        paddingVertical: 10,
-        borderRadius: 8,
-        marginTop: 20,
-        alignItems: 'center',
-    },
-    submitButtonText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 12,
-    },
-    printButton: {
-        backgroundColor: '#4a148c',
-        paddingVertical: 12,
-        borderRadius: 8,
-        marginTop: 10,
-        alignItems: 'center',
-    },
-    printButtonText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 12,
-    },
-
-    labelText: {
-        fontSize: 12,
-        color: '#4a148c',  // Purple color for text labels
-    },
-    amountText: {
-        color: '#000',     // Black color for amounts
-    },
-    horizontalTable: {
-        flexDirection: 'row',
         padding: 10,
-    },
-    tablePart: {
-        marginRight: 20,
+        marginBottom: 10
     },
     headerRow: {
         flexDirection: 'row',
@@ -1216,5 +966,24 @@ const styles = StyleSheet.create({
         color: '#4a148c',
         fontSize: 12,
     },
+    trannoText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#4a148c',
+        marginTop: 12,
+    },
+    submitButton: {
+        backgroundColor: '#7b1fa2',
+        paddingVertical: 10,
+        borderRadius: 8,
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    submitButtonText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 12,
+    },
 });
+
 export default HomeScreen;

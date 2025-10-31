@@ -85,6 +85,9 @@ const EstimationScreen = () => {
                 <TouchableOpacity style={styles.button} onPress={() => { navigation.navigate('Homescreen1'); }}>
                     <Text style={styles.buttonText}>🛒 Rate Viewer</Text>
                 </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={() => { navigation.navigate('Print'); }}>
+                    <Text style={styles.buttonText}>🛒 Print</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.button, styles.refreshButton]} onPress={fetchRates}>
                     {loading ? (
