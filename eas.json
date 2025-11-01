@@ -1,28 +1,60 @@
 {
   "cli": {
-    "version": ">= 3.0.0"
+    "version": ">= 3.9.0",
+    "appVersionSource": "local"
   },
   "build": {
-    "production": {
-      "distribution": "store",
-      "android": {
-        "buildType": "app-bundle",
-        "releaseChannel": "production"
-      },
-      "ios": {
-        "simulator": false,
-        "releaseChannel": "production"
-      }
-    },
     "development": {
+      "developmentClient": true,
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "releaseChannel": "development"
+        "buildType": "apk"
       },
       "ios": {
-        "simulator": true,
-        "releaseChannel": "development"
+        "resourceClass": "m-medium"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "production": {
+      "developmentClient": false,
+      "releaseChannel": "production",
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "production-apk": {
+      "developmentClient": false,
+      "releaseChannel": "production",
+      "distribution": "store",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "production"
+      },
+      "ios": {
+        "appleId": "sharan.gohar@icloud.com",
+        "ascAppId": "1526488093",
+        "appleTeamId": "GDFK7MVY6P"
       }
     }
   }

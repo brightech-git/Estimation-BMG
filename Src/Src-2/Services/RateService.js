@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../Config/Config';
+import { useApiBaseUrl } from '../Config/Config';
 
 const useServiceRates = () => {
   const [rates, setRates] = useState({ SILVERRATE: 0, GOLDRATE: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const API_BASE_URL = useApiBaseUrl();
 
   useEffect(() => {
     const fetchRates = async () => {

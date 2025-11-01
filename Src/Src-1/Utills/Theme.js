@@ -71,9 +71,7 @@ export const FONTS = {
   h5: { fontSize: SIZES.h5, color: COLORS.title, fontFamily: 'DMSerif', lineHeight: 26 },
   h6: { fontSize: SIZES.h6, color: COLORS.title, fontFamily: 'DMSerif', lineHeight: 24 },
 
-  heading: { fontFamily: 'TrajanProBold', lineHeight: 25 },
-  headingBold: { fontFamily: 'TrajanProBold', lineHeight: 25 },
-  headingNormal: { fontFamily: 'TrajanPro', lineHeight: 25 },
+  heading: { fontFamily: 'TrajanProBold', lineHeight: 35 },
   subheading: { fontFamily: 'DMSerif', fontWeight: '500' },
   body: { fontFamily: 'DancingScript', fontWeight: '600' },
   text: { fontFamily: 'Domine', fontWeight: '400' },

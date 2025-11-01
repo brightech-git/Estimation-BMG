@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../Config/Config';
+import { useApiBaseUrl } from '../Config/Config';
 
 const useEstimationData = (itemId, tagNo) => {
   const [estimationData, setEstimationData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const API_BASE_URL = useApiBaseUrl();
 
   useEffect(() => {
     if (!itemId || !tagNo) return;

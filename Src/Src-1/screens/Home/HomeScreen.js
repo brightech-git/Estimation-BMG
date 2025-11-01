@@ -4,19 +4,17 @@ import {
     ActivityIndicator, Alert, FlatList, TouchableOpacity
 } from 'react-native';
 import axios from 'axios';
-import EstimationScreen from './EstimationScreen';
-import { UserContext } from '../screens/UserContext';
+import MainHeader from '../../Components/Header/Header'
+import { LoginContext } from '../../Context/LoginContext';
 import { useContext } from 'react';
-import Footer from '../Src/Components/Footer/Footer'
+import Footer from '../../Components/Footer/Footer'
 import { Modal } from 'react-native';
-import BarcodeScannerModal from './BarcodeScannerModal';
-import { printEstimationSlip, useEstimationPreview } from './PrintSlip'; // Updated import
-
-const api = axios.create({
-    baseURL: 'https://est.bmgjewellers.com/api/v1'
-});
+import BarcodeScannerModal from '../../Components/BarCodeScanner/BarcodeScannerModal';
+import { printEstimationSlip, useEstimationPreview } from '../../Components/PrintReceipt/PrintSlip';
+import { useApiBaseUrl } from '../../Config/Config';
 
 const HomeScreen = () => {
+    // State declarations
     const [ITEMID, setITEMID] = useState('');
     const [TAGNO, setTAGNO] = useState('');
     const [emp, setEmp] = useState('');
@@ -24,29 +22,33 @@ const HomeScreen = () => {
     const [loading, setLoading] = useState(false);
     const [itemList, setItemList] = useState([]);
     const [showList, setShowList] = useState(false);
-    const { userId } = useContext(UserContext);
-    const [empID, setEmpID] = useState(null);
-    const [empList, setEmpList] = useState([]);
-    const [selectedEmpID, setSelectedEmpID] = useState(null);
+    const { username, userId, companyId, companyName } = useContext(LoginContext);
     const [tranno, setTranno] = useState(null);
-    const [filteredEmpList, setFilteredEmpList] = useState([]);
-    const [showEmpList, setShowEmpList] = useState(false);
+    const [estBatchNo, setEstBatchNo] = useState(null);
+    
+    // Refs
     const itemIdInputRef = useRef(null);
     const tagInputRef = useRef(null);
     const empInputRef = useRef(null);
-    const [hasPermission, setHasPermission] = useState(null);
+    
+    // Scanner state
     const [scanningField, setScanningField] = useState(null);
     const [scannerVisible, setScannerVisible] = useState(false);
-    const [estBatchNo, setEstBatchNo] = useState(null);
-    const { username } = useContext(UserContext);
-
-    // Add print preview hook
+    
+    // API and print hooks
+    const API_BASE_URL = useApiBaseUrl();
     const { EstimationPreviewComponent } = useEstimationPreview();
 
+    const api = axios.create({
+        baseURL: `${API_BASE_URL}`
+    });
+
+    // Focus on item ID input on mount
     useEffect(() => {
         itemIdInputRef.current?.focus();
     }, []);
 
+    // Scanner handler
     const handleScanned = (field, data) => {
         if (data.includes('-')) {
             const [item, tag] = data.split('-');
@@ -64,12 +66,35 @@ const HomeScreen = () => {
         }
     };
 
+    // Utility functions
     const parseValue = (value) => {
         if (!value || value === 'null') return 0;
         const parsed = parseFloat(value);
         return isNaN(parsed) ? 0 : parsed;
     };
 
+    const calculateGrossAmount = (row) => {
+        const netWt = parseValue(row.NETWT);
+        const wastage = parseValue(row.Wastage);
+        const rate = parseValue(row.Rate);
+        const mc = parseValue(row.MC);
+        const stoneAmt = parseValue(row.StoneAmount);
+        const miscAmt = parseValue(row.MiscAmount);
+        return (netWt + wastage) * rate + mc + stoneAmt + miscAmt;
+    };
+
+    const calculateGST = (row) => {
+        const gross = calculateGrossAmount(row);
+        let gstPer = parseFloat(row.GSTPer);
+        if (isNaN(gstPer)) gstPer = 0;
+        return (gross * gstPer) / 100;
+    };
+
+    const calculateGrandTotal = (row) => {
+        return calculateGrossAmount(row) + calculateGST(row);
+    };
+
+    // Data fetching functions
     const fetchItemList = async () => {
         try {
             const response = await api.get('/list');
@@ -97,6 +122,7 @@ const HomeScreen = () => {
         setLoading(true);
 
         try {
+            // Check if tag already exists
             let tagDetails = null;
             try {
                 const checkResponse = await api.get(`/tag-details`, { params: { ITEMID, TAGNO } });
@@ -110,6 +136,7 @@ const HomeScreen = () => {
                 return;
             }
 
+            // Check for duplicates in current table
             const alreadyExists = tableData.some(row =>
                 row.ITEMID === itemIdInt && row.TAGNO === TAGNO && row.EMPID === emp
             );
@@ -119,6 +146,7 @@ const HomeScreen = () => {
                 return;
             }
 
+            // Fetch estimation data
             const response = await api.get('/estimationTotal', {
                 params: { ITEMID, TAGNO }
             });
@@ -140,6 +168,7 @@ const HomeScreen = () => {
 
             setTableData(prev => [...prev, ...newData]);
 
+            // Reset form and focus
             setITEMID('');
             setTAGNO('');
             setEmp('');
@@ -152,72 +181,7 @@ const HomeScreen = () => {
         }
     };
 
-    const calculateGrossAmount = (row) => {
-        const netWt = parseValue(row.NETWT);
-        const wastage = parseValue(row.Wastage);
-        const rate = parseValue(row.Rate);
-        const mc = parseValue(row.MC);
-        const stoneAmt = parseValue(row.StoneAmount);
-        const miscAmt = parseValue(row.MiscAmount);
-        return (netWt + wastage) * rate + mc + stoneAmt + miscAmt;
-    };
-
-    const calculateGST = (row) => {
-        const gross = calculateGrossAmount(row);
-        let gstPer = parseFloat(row.GSTPer);
-        if (isNaN(gstPer)) gstPer = 0;
-        return (gross * gstPer) / 100;
-    };
-
-    const calculateGrandTotal = (row) => {
-        return calculateGrossAmount(row) + calculateGST(row);
-    };
-
-    const renderItem = ({ item }) => (
-        <View style={styles.row}>
-            <Text style={styles.cell}>{item.ITEMID}</Text>
-            <Text style={styles.cell}>{item.TAGNO}</Text>
-            <Text style={styles.cell}>{item?.PCS || 'N/A'}</Text>
-            <Text style={styles.cell}>{item?.GRSWT || 'N/A'}</Text>
-            <Text style={styles.cell}>{item?.NETWT || 'N/A'}</Text>
-            <Text style={styles.cell}>{item?.Rate || 'N/A'}</Text>
-            <Text style={styles.cell}>{item?.Wastage || 'N/A'}</Text>
-            <Text style={styles.cell}>{item?.MC || 'N/A'}</Text>
-            <Text style={styles.cell}>{item?.StoneAmount || '0'}</Text>
-            <Text style={styles.cell}>{item?.MiscAmount || '0'}</Text>
-            <Text style={styles.cell}>{calculateGrossAmount(item).toFixed(2)}</Text>
-            <Text style={styles.cell}>{calculateGST(item).toFixed(2)}</Text>
-            <Text style={styles.cell}>{calculateGrandTotal(item).toFixed(2)}</Text>
-            <Text style={styles.cell}>{item.EMP}</Text>
-        </View>
-    );
-
-    const renderTotalRow = () => {
-        const sum = (key) => tableData.reduce((acc, curr) => acc + parseValue(curr[key]), 0);
-        const totalGross = tableData.reduce((acc, row) => acc + calculateGrossAmount(row), 0);
-        const totalGST = tableData.reduce((acc, row) => acc + calculateGST(row), 0);
-        const totalGrand = tableData.reduce((acc, row) => acc + calculateGrandTotal(row), 0);
-
-        return (
-            <View style={[styles.row, { backgroundColor: '#ddd' }]}>
-                <Text style={styles.cell}>Total</Text>
-                <Text style={styles.cell}>-</Text>
-                <Text style={styles.cell}>{sum('PCS')}</Text>
-                <Text style={styles.cell}>{sum('GRSWT').toFixed(2)}</Text>
-                <Text style={styles.cell}>{sum('NETWT').toFixed(2)}</Text>
-                <Text style={styles.cell}>{sum('Rate').toFixed(2)}</Text>
-                <Text style={styles.cell}>{sum('Wastage').toFixed(2)}</Text>
-                <Text style={styles.cell}>{sum('MC').toFixed(2)}</Text>
-                <Text style={styles.cell}>{sum('StoneAmount').toFixed(2)}</Text>
-                <Text style={styles.cell}>{sum('MiscAmount').toFixed(2)}</Text>
-                <Text style={styles.cell}>{totalGross.toFixed(2)}</Text>
-                <Text style={styles.cell}>{totalGST.toFixed(2)}</Text>
-                <Text style={styles.cell}>{totalGrand.toFixed(2)}</Text>
-                <Text style={styles.cell}>-</Text>
-            </View>
-        );
-    };
-
+    // Submission functions
     const fetchEstBatchNo = async () => {
         try {
             const today = new Date().toISOString().split('T')[0];
@@ -236,50 +200,45 @@ const HomeScreen = () => {
         }
     };
 
-    const totalGross = tableData.reduce((acc, row) => acc + calculateGrossAmount(row), 0);
-    const totalGST = tableData.reduce((acc, row) => acc + calculateGST(row), 0);
-    const totalGrand = tableData.reduce((acc, row) => acc + calculateGrandTotal(row), 0);
+    const formatDateToSqlDateTime = (dateInput) => {
+        const dt = dateInput ? new Date(dateInput) : new Date();
+        if (isNaN(dt)) return null;
+        return dt.toISOString().replace('T', ' ').split('.')[0];
+    };
+
+    const formatDateToMidnightSql = (dateInput = new Date()) => {
+        const date = new Date(dateInput);
+        if (isNaN(date.getTime())) return null;
+        const year = date.getFullYear();
+        const month = `${date.getMonth() + 1}`.padStart(2, '0');
+        const day = `${date.getDate()}`.padStart(2, '0');
+        return `${year}-${month}-${day} 00:00:00`;
+    };
 
     const submitData = async () => {
         console.log('Submitting data:', tableData);
         if (tableData.length === 0) {
             Alert.alert("No data", "Please add items before submitting.");
-            return;
+            return null;
         }
 
         try {
             setLoading(true);
 
+            // Get transaction number
             const trannoResponse = await api.get('/tranno');
             console.log('TRANNO Response:', trannoResponse.data);
             const TRANNO = trannoResponse.data;
             if (!TRANNO) throw new Error("Failed to get TRANNO");
 
+            // Get estimation batch number
             const estBatchNo = await fetchEstBatchNo();
             if (!estBatchNo) {
                 Alert.alert('Error', 'Could not retrieve ESTBATCHNO');
-                return;
+                return null;
             }
 
-            // ... rest of your submitData function remains the same ...
-            // (keeping all the existing logic for data processing and API calls)
-
-            const formatDateToSqlDateTime = (dateInput) => {
-                const dt = dateInput ? new Date(dateInput) : new Date();
-                if (isNaN(dt)) return null;
-                return dt.toISOString().replace('T', ' ').split('.')[0];
-            };
-
-            const formatDateToMidnightSql = (dateInput = new Date()) => {
-                const date = new Date(dateInput);
-                if (isNaN(date.getTime())) return null;
-                const year = date.getFullYear();
-                const month = `${date.getMonth() + 1}`.padStart(2, '0');
-                const day = `${date.getDate()}`.padStart(2, '0');
-                return `${year}-${month}-${day} 00:00:00`;
-            };
-
-            // --- Step 3: Enrich items ---
+            // Enrich items with additional data
             const enrichedData = await Promise.all(
                 tableData.map(async (item) => {
                     console.log(`Fetching stone inputs for ITEMID=${item.ITEMID} TAGNO=${item.TAGNO}`);
@@ -294,7 +253,7 @@ const HomeScreen = () => {
                         console.warn(`Failed to fetch stone inputs`, err);
                     }
 
-                    // Fetch stoneCatCode
+                    // Fetch stone category codes
                     for (const stn of stoneInputs) {
                         if (!stn?.stnitemid) continue;
                         try {
@@ -307,6 +266,7 @@ const HomeScreen = () => {
                         }
                     }
 
+                    // Fetch tag details
                     let tagDetails = {};
                     try {
                         const tagDetailsResponse = await api.get(`/tagDetails/${item.TAGNO}`);
@@ -315,6 +275,7 @@ const HomeScreen = () => {
                         console.warn(`Failed to fetch tag details`, err);
                     }
 
+                    // Get transaction date
                     let trandateString = formatDateToSqlDateTime();
                     try {
                         const trandateResponse = await api.get('/trandate', {
@@ -328,6 +289,7 @@ const HomeScreen = () => {
                         console.warn(`Failed to fetch trandate`, err);
                     }
 
+                    // Build item payload
                     const rawItem = {
                         TRANNO,
                         TRANDATE: formatDateToMidnightSql(item.trandate),
@@ -420,14 +382,10 @@ const HomeScreen = () => {
 
             console.log("📤 Payload to /estissue:", JSON.stringify(rawItems, null, 2));
 
-
+            // Submit main estimation data
             const estIssueResponse = await api.post('/estissue', rawItems);
-
             console.log("📦 Full estIssueResponse.data:", JSON.stringify(estIssueResponse.data, null, 2));
 
-
-
-            // Step 2: Validate and extract data
             const savedIssues = Array.isArray(estIssueResponse.data)
                 ? estIssueResponse.data
                 : (estIssueResponse.data?.data || []);
@@ -438,6 +396,7 @@ const HomeScreen = () => {
                 throw new Error("❌ Invalid EstIssue response: expected an array but got " + JSON.stringify(estIssueResponse.data));
             }
 
+            // Create mapping for SNOs
             const snoMap = {};
             estIssueResponse.data.forEach(issue => {
                 snoMap[issue.TAGNO || issue.tagno] = issue.SNO || issue.sno;
@@ -453,8 +412,8 @@ const HomeScreen = () => {
                 }
             });
 
+            // Submit stone data
             const allStonePayloads = [];
-
             for (const [item, stoneInputs] of enrichedData) {
                 const tagno = item.TAGNO;
                 const estSNO = snoMap[tagno];
@@ -528,7 +487,7 @@ const HomeScreen = () => {
                 });
             }
 
-
+            // Submit tax data
             for (const tagno in snoMap) {
                 const estSNO = snoMap[tagno];
                 const rawItem = tagToRawItemMap[tagno.toString().trim()];
@@ -556,7 +515,7 @@ const HomeScreen = () => {
                     continue;
                 }
 
-                // Optional: get tax config
+                // Get tax details
                 let taxDetails = {};
                 try {
                     const taxRes = await api.get(`/getEstTaxTranDetails/${rawItem.ITEMID}`);
@@ -566,7 +525,7 @@ const HomeScreen = () => {
                     console.warn(`❌ Failed to fetch tax details for ITEMID=${rawItem.ITEMID}`, err);
                 }
 
-                // Build base payload (no taxid, tsno here!)
+                // Build tax payload
                 const basePayload = {
                     sno: estTaxTranSno,
                     isssno: String(estSNO),
@@ -575,10 +534,10 @@ const HomeScreen = () => {
                     trantype: "SA",
                     batchno: String(estBatchNo),
                     amount: parseFloat(amount.toFixed(2)),
-                    taxtype: null, // ✅ Must not be null or ""
+                    taxtype: null,
                     costid: String(rawItem.COSTID),
                     companyid: String(rawItem.COMPANYID),
-                    studded: null // ✅ Must not be null
+                    studded: null
                 };
 
                 const generateTaxEntries = (payload, sgst = 1.5, cgst = 1.5) => {
@@ -615,13 +574,14 @@ const HomeScreen = () => {
                 }
             }
 
-
+            // Update transaction number
             try {
                 await api.post('/updateTranno');
             } catch (err) {
                 Alert.alert("Partial Success", "Data submitted, but TRANNO update failed.");
             }
 
+            // Get final details for printing
             const [ipResponse, detailResponse, rateResponse] = await Promise.all([
                 api.get('/ipaddress'),
                 api.get(`/details/${TRANNO}`),
@@ -635,10 +595,11 @@ const HomeScreen = () => {
                 ? new Date().toISOString().replace('T', ' ').slice(0, 19)
                 : new Date(rawBillDate).toISOString().replace('T', ' ').slice(0, 19);
 
-            // Save est_batch_no to state and also return it
+            // Save batch number for printing
             const batchNo = estDetails?.est_batch_no || "";
             setEstBatchNo(batchNo);
 
+            // Submit print data
             const estPrintPayload = {
                 brefno: TRANNO,
                 billdate: billDate,
@@ -652,9 +613,9 @@ const HomeScreen = () => {
 
             await api.post('/estprint', estPrintPayload);
 
-           Alert.alert("Success", `Sales Estimation No: ${TRANNO} Generated`);
+            Alert.alert("Success", `Sales Estimation No: ${TRANNO} Generated`);
             setTranno(TRANNO);
-            setEstBatchNo(estBatchNo); // Save batch number for printing
+            setEstBatchNo(estBatchNo);
             setTableData([]);
 
             return estBatchNo;
@@ -662,223 +623,249 @@ const HomeScreen = () => {
         } catch (error) {
             Alert.alert("Error", error.response?.data?.message || error.message || "Something went wrong.");
             console.error("Submitting error:", error);
-            return false;
+            return null;
         } finally {
             setLoading(false);
         }
     };
 
-    // New function to handle printing
+    // Print handler
+// In your HomeScreen, update the handlePrint function:
 const handlePrint = async () => {
-  console.log('Print button clicked, estBatchNo:', estBatchNo);
+  console.log('🖨️ Print button clicked, estBatchNo:', estBatchNo);
+  console.log('👤 Username:', username);
+  console.log('🌐 API Base URL:', API_BASE_URL);
+  
   if (!estBatchNo) {
     Alert.alert("No slip available", "Please submit first to generate a slip");
     return;
   }
 
+  if (!API_BASE_URL) {
+    Alert.alert("Configuration Error", "API base URL is not configured");
+    return;
+  }
+
   try {
-    console.log('Calling printEstimationSlip with:', estBatchNo, username);
-    await printEstimationSlip(estBatchNo, username);
+    console.log('📞 Calling printEstimationSlip...');
+    await printEstimationSlip(estBatchNo, username, API_BASE_URL);
   } catch (err) {
-    console.error("Print error:", err);
-    Alert.alert("Print Failed", "Unable to generate slip");
+    console.error("❌ Print error:", err);
+    Alert.alert("Print Failed", err.message || "Unable to generate slip");
   }
 };
 
+    // Calculate totals
+    const totalGross = tableData.reduce((acc, row) => acc + calculateGrossAmount(row), 0);
+    const totalGST = tableData.reduce((acc, row) => acc + calculateGST(row), 0);
+    const totalGrand = tableData.reduce((acc, row) => acc + calculateGrandTotal(row), 0);
+
     return (
         <>
-            <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-                {/* 📊 Estimation Card */}
-                <EstimationScreen />
+            <ScrollView keyboardShouldPersistTaps="handled">
+                <MainHeader />
+                <View style={styles.container}>
+                    {/* Totals Display */}
+                    {tableData.length > 0 && (
+                        <View style={styles.totalsContainer}>
+                            <View style={styles.totalsRow}>
+                                <View style={styles.totalItem}>
+                                    <Text style={styles.totalLabel}>Gross Amount</Text>
+                                    <Text style={styles.totalValue}>
+                                        ₹{totalGross.toFixed(2)}
+                                    </Text>
+                                </View>
 
-                {/* Totals Display */}
-                {tableData.length > 0 && (
-                    <View style={styles.totalsContainer}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-                            <View style={{ alignItems: 'center' }}>
-                                <Text style={{ fontSize: 13, color: '#555' }}>Gross Amount</Text>
-                                <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>
-                                    ₹{totalGross.toFixed(2)}
-                                </Text>
-                            </View>
+                                <View style={styles.totalItem}>
+                                    <Text style={styles.totalLabel}>GST Amount</Text>
+                                    <Text style={styles.totalValue}>
+                                        ₹{totalGST.toFixed(2)}
+                                    </Text>
+                                </View>
 
-                            <View style={{ alignItems: 'center' }}>
-                                <Text style={{ fontSize: 13, color: '#555' }}>GST Amount</Text>
-                                <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>
-                                    ₹{totalGST.toFixed(2)}
-                                </Text>
-                            </View>
-
-                            <View style={{ alignItems: 'center' }}>
-                                <Text style={{ fontSize: 13, color: '#555' }}>Grand Total</Text>
-                                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#000' }}>
-                                    ₹{totalGrand.toFixed(2)}
-                                </Text>
+                                <View style={styles.totalItem}>
+                                    <Text style={styles.totalLabel}>Grand Total</Text>
+                                    <Text style={[styles.totalValue, styles.grandTotal]}>
+                                        ₹{totalGrand.toFixed(2)}
+                                    </Text>
+                                </View>
                             </View>
                         </View>
+                    )}
+
+                    {/* Input Fields */}
+                    <View style={styles.inputRow}>
+                        <View style={styles.inputWrapper}>
+                            <TextInput
+                                ref={itemIdInputRef}
+                                style={styles.input}
+                                placeholder="Item ID"
+                                value={ITEMID}
+                                onChangeText={(text) => {
+                                    setITEMID(text);
+                                    setShowList(false);
+                                }}
+                                onSubmitEditing={() => {
+                                    if (ITEMID.trim() === '') fetchItemList();
+                                    else tagInputRef.current?.focus();
+                                }}
+                                returnKeyType="next"
+                            />
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setScanningField('itemid');
+                                    setScannerVisible(true);
+                                }}
+                                style={styles.scanButton}
+                            >
+                                <Text style={styles.scanIcon}>📷</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.inputWrapper}>
+                            <TextInput
+                                ref={tagInputRef}
+                                style={styles.input}
+                                placeholder="Tag No"
+                                value={TAGNO}
+                                onChangeText={setTAGNO}
+                                onSubmitEditing={() => empInputRef.current?.focus()}
+                                returnKeyType="next"
+                            />
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setScanningField('tagno');
+                                    setScannerVisible(true);
+                                }}
+                                style={styles.scanButton}
+                            >
+                                <Text style={styles.scanIcon}>📷</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.inputWrapper}>
+                            <TextInput
+                                ref={empInputRef}
+                                style={styles.input}
+                                placeholder="Emp ID"
+                                value={emp}
+                                onChangeText={setEmp}
+                                onSubmitEditing={fetchData}
+                                returnKeyType="done"
+                            />
+                        </View>
                     </View>
-                )}
 
-                {/* 📥 Input Fields */}
-                <View style={styles.inputRow}>
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            ref={itemIdInputRef}
-                            style={styles.input}
-                            placeholder="Item ID"
-                            value={ITEMID}
-                            onChangeText={(text) => {
-                                setITEMID(text);
-                                setShowList(false);
-                            }}
-                            onSubmitEditing={() => {
-                                if (ITEMID.trim() === '') fetchItemList();
-                                else tagInputRef.current?.focus();
-                            }}
-                            returnKeyType="next"
-                        />
-                        <TouchableOpacity
-                            onPress={() => {
-                                setScanningField('itemid');
-                                setScannerVisible(true);
-                            }}
-                        >
-                            <Text style={styles.scanIcon}>📷</Text>
-                        </TouchableOpacity>
-                    </View>
+                    {/* Item Suggestions Dropdown */}
+                    {showList && itemList.length > 0 && (
+                        <View style={styles.dropdown}>
+                            <FlatList
+                                data={itemList}
+                                keyExtractor={(item, index) => index.toString()}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            setITEMID(item);
+                                            setShowList(false);
+                                            tagInputRef.current?.focus();
+                                        }}
+                                        style={styles.dropdownItem}
+                                    >
+                                        <Text style={styles.dropdownText}>{item}</Text>
+                                    </TouchableOpacity>
+                                )}
+                                nestedScrollEnabled={true}
+                            />
+                        </View>
+                    )}
 
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            ref={tagInputRef}
-                            style={styles.input}
-                            placeholder="Tag No"
-                            value={TAGNO}
-                            onChangeText={setTAGNO}
-                            onSubmitEditing={() => empInputRef.current?.focus()}
-                            returnKeyType="next"
-                        />
-                        <TouchableOpacity
-                            onPress={() => {
-                                setScanningField('tagno');
-                                setScannerVisible(true);
-                            }}
-                        >
-                            <Text style={styles.scanIcon}>📷</Text>
-                        </TouchableOpacity>
-                    </View>
+                    {/* Loading Indicator */}
+                    {loading && (
+                        <ActivityIndicator size="large" color="#7b1fa2" style={styles.loader} />
+                    )}
 
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            ref={empInputRef}
-                            style={styles.input}
-                            placeholder="Emp ID"
-                            value={emp}
-                            onChangeText={setEmp}
-                            onSubmitEditing={fetchData}
-                            returnKeyType="done"
-                        />
-                    </View>
-                </View>
+                    {/* Data Table */}
+                    {tableData.length > 0 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.tableContainer}>
+                            <View>
+                                <View style={styles.headerRow}>
+                                    {[
+                                        'Item ID', 'Tag No', 'Pcs', 'Grswt', 'NetWt', 'Rate', 'Wastage',
+                                        'MC', 'Stone', 'Misc', 'Gross', 'GST', 'GrandTotal', 'Emp'
+                                    ].map((label, idx) => (
+                                        <Text key={idx} style={styles.headerCell}>{label}</Text>
+                                    ))}
+                                </View>
 
-                {/* 🔽 Dropdown (Item Suggestions) */}
-                {showList && itemList.length > 0 && (
-                    <View style={styles.dropdown}>
-                        <FlatList
-                            data={itemList}
-                            keyExtractor={(item, index) => index.toString()}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setITEMID(item);
-                                        setShowList(false);
-                                        tagInputRef.current?.focus();
-                                    }}
-                                >
-                                    <Text style={styles.dropdownItem}>{item}</Text>
-                                </TouchableOpacity>
-                            )}
-                        />
-                    </View>
-                )}
-
-                {/* ⏳ Loader */}
-                {loading && <ActivityIndicator size="large" color="#7b1fa2" style={{ marginVertical: 20 }} />}
-
-                {/* Data Table */}
-                {tableData.length > 0 && (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-                        <View>
-                            <View style={styles.headerRow}>
-                                {[
-                                    'Item ID', 'Tag No', 'Pcs', 'Grswt', 'NetWt', 'Rate', 'Wastage',
-                                    'MC', 'Stone', 'Misc', 'Gross', 'GST', 'GrandTotal', 'Emp'
-                                ].map((label, idx) => (
-                                    <Text key={idx} style={styles.headerCell}>{label}</Text>
+                                {tableData.map((item, rowIdx) => (
+                                    <View key={rowIdx} style={styles.dataRow}>
+                                        <Text style={styles.cell}>{item.ITEMID ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.TAGNO ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.PCS ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.GRSWT ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.NETWT ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.Rate ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.Wastage ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.MC ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.StoneAmount ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{item.MiscAmount ?? 'N/A'}</Text>
+                                        <Text style={styles.cell}>{calculateGrossAmount(item).toFixed(2)}</Text>
+                                        <Text style={styles.cell}>{calculateGST(item).toFixed(2)}</Text>
+                                        <Text style={styles.cell}>{calculateGrandTotal(item).toFixed(2)}</Text>
+                                        <Text style={styles.cell}>{item.EMP ?? 'N/A'}</Text>
+                                    </View>
                                 ))}
                             </View>
+                        </ScrollView>
+                    )}
 
-                            {tableData.map((item, rowIdx) => (
-                                <View key={rowIdx} style={styles.dataRow}>
-                                    <Text style={styles.cell}>{item.ITEMID ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.TAGNO ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.PCS ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.GRSWT ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.NETWT ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.Rate ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.Wastage ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.MC ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.StoneAmount ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{item.MiscAmount ?? 'N/A'}</Text>
-                                    <Text style={styles.cell}>{calculateGrossAmount(item).toFixed(2)}</Text>
-                                    <Text style={styles.cell}>{calculateGST(item).toFixed(2)}</Text>
-                                    <Text style={styles.cell}>{calculateGrandTotal(item).toFixed(2)}</Text>
-                                    <Text style={styles.cell}>{item.EMP ?? 'N/A'}</Text>
-                                </View>
-                            ))}
+                    {/* Transaction Number Display */}
+                    {tranno && (
+                        <View style={styles.trannoContainer}>
+                            <Text style={styles.trannoText}>
+                                Last Submitted TRANNO: {tranno}
+                            </Text>
                         </View>
-                    </ScrollView>
-                )}
+                    )}
 
-                {/* 🔢 Transaction Number */}
-                {tranno && (
-                    <Text style={styles.trannoText}>
-                        Last Submitted TRANNO: {tranno}
-                    </Text>
-                )}
+                    {/* Action Buttons */}
+                    <View style={styles.actionButtonsContainer}>
+                        <TouchableOpacity
+                            style={styles.submitButton}
+                            onPress={async () => {
+                                const batchNo = await submitData();
+                                if (batchNo) {
+                                    setEstBatchNo(batchNo);
+                                    console.log('ESTBATCHNO:', batchNo);
+                                }
+                            }}
+                            disabled={loading}
+                        >
+                            <Text style={styles.submitButtonText}>
+                                {loading ? 'Submitting...' : 'Submit'}
+                            </Text>
+                        </TouchableOpacity>
 
-                {/* 🔍 Scanner Modal */}
-                <BarcodeScannerModal
-                    visible={scannerVisible}
-                    onClose={() => setScannerVisible(false)}
-                    scanningField={scanningField}
-                    onScanned={handleScanned}
-                />
+                        <TouchableOpacity
+                            style={[styles.submitButton, styles.printButton]}
+                            onPress={handlePrint}
+                            disabled={!estBatchNo}
+                        >
+                            <Text style={styles.submitButtonText}>Print Slip</Text>
+                        </TouchableOpacity>
+                    </View>
 
-                {/* Action Buttons */}
-                <TouchableOpacity
-                    style={styles.submitButton}
-                    onPress={async () => {
-                        const batchNo = await submitData();
-                        if (batchNo) {
-                            setEstBatchNo(batchNo);
-                            console.log('ESTBATCHNO:', batchNo);
-                            // Removed auto-print here
-                        }
-                    }}
-                >
-                    <Text style={styles.submitButtonText}>Submit</Text>
-                </TouchableOpacity>
+                    {/* Scanner Modal */}
+                    <BarcodeScannerModal
+                        visible={scannerVisible}
+                        onClose={() => setScannerVisible(false)}
+                        scanningField={scanningField}
+                        onScanned={handleScanned}
+                    />
 
-                {/* Print Button */}
-                <TouchableOpacity
-                    style={[styles.submitButton, { backgroundColor: "#4a148c" }]}
-                    onPress={handlePrint}
-                >
-                    <Text style={styles.submitButtonText}>Print Slip</Text>
-                </TouchableOpacity>
-
-                {/* Print Preview Component */}
-                {EstimationPreviewComponent}
+                    {/* Print Preview Component */}
+                    {EstimationPreviewComponent}
+                </View>
             </ScrollView>
             <Footer />
         </>
@@ -888,7 +875,6 @@ const handlePrint = async () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f3e5f5',
         padding: 16,
     },
     inputRow: {
@@ -914,9 +900,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#4a148c',
     },
+    scanButton: {
+        paddingLeft: 6,
+    },
     scanIcon: {
         fontSize: 15,
-        paddingLeft: 6,
     },
     dropdown: {
         backgroundColor: '#fff',
@@ -933,6 +921,8 @@ const styles = StyleSheet.create({
         padding: 10,
         borderBottomColor: '#e1bee7',
         borderBottomWidth: 1,
+    },
+    dropdownText: {
         color: '#4a148c',
     },
     totalsContainer: {
@@ -940,6 +930,31 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         padding: 10,
         marginBottom: 10
+    },
+    totalsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+    },
+    totalItem: {
+        alignItems: 'center',
+    },
+    totalLabel: {
+        fontSize: 13,
+        color: '#555',
+    },
+    totalValue: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#000',
+    },
+    grandTotal: {
+        fontWeight: 'bold',
+    },
+    loader: {
+        marginVertical: 20,
+    },
+    tableContainer: {
+        marginBottom: 10,
     },
     headerRow: {
         flexDirection: 'row',
@@ -966,18 +981,29 @@ const styles = StyleSheet.create({
         color: '#4a148c',
         fontSize: 12,
     },
+    trannoContainer: {
+        marginTop: 12,
+        alignItems: 'center',
+    },
     trannoText: {
         fontSize: 12,
         fontWeight: 'bold',
         color: '#4a148c',
-        marginTop: 12,
+    },
+    actionButtonsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 20,
     },
     submitButton: {
         backgroundColor: '#7b1fa2',
         paddingVertical: 10,
         borderRadius: 8,
-        marginTop: 20,
         alignItems: 'center',
+        width: '48%',
+    },
+    printButton: {
+        backgroundColor: '#4a148c',
     },
     submitButtonText: {
         color: '#fff',

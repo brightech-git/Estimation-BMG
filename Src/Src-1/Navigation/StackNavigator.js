@@ -6,11 +6,21 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import LoginScreen from "./LoginScreen";
-import HomeScreen from "./HomeScreen";
-import Homescreen1 from "../Src/Screens/Home/Home";
-import { UserProvider } from "./UserContext";
-import PrintScreen from "./Print/PrintMain";
+//Src-1 data 
+
+//Screens
+import LoginScreen from "../screens/Login/LoginScreen";
+import HomeScreen from "../screens/Home/HomeScreen";
+import PrintScreen from "../screens/AddPrinter/PrintMain";
+
+//Context
+import { LoginProvider } from "../Context/LoginContext";
+import {ToastProvider} from '../Context/ToastContext'
+
+//Src-2 data
+import Homescreen1 from "../../Src-2/Screens/Home/Home";
+
+
 
 const Stack = createNativeStackNavigator();
 
@@ -59,7 +69,9 @@ export default function StackNavigator() {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <UserProvider>
+      <LoginProvider>
+        <ToastProvider>
+       
         <NavigationContainer>
           <Stack.Navigator initialRouteName={initialRoute}>
             <Stack.Screen
@@ -84,7 +96,8 @@ export default function StackNavigator() {
             />
           </Stack.Navigator>
         </NavigationContainer>
-      </UserProvider>
+      </ToastProvider>
+      </LoginProvider>
     </SafeAreaView>
   );
 }
