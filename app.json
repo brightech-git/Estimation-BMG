@@ -4,11 +4,11 @@
     "slug": "bmg-estimation",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brightechlogo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/brightechlogo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,14 +17,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/brightechlogo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.kiruba08.bmgestimation"
     },
     "web": {
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/brightechlogo.png"
     },
     "extra": {
       "eas": {

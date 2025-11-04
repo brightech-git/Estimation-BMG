@@ -1,4 +1,3 @@
-// HomeScreen.js
 import React, {
   useState,
   useCallback,
@@ -20,11 +19,12 @@ import {
   BackHandler,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../../Context/ThemeContext"; // Adjust path as needed
 import Header from "../../Components/Header/Header";
 import Footer from "../../Components/Footer/Footer";
 import BarcodeScannerModal from "../../Components/Scanner/Scanner";
 import useEstimationData from "../../Services/TagDetailsService";
-import { COLORS, SIZES, FONTS } from "../../Utills/Theme";
+import { createHomeScreenStyles } from "./HomeStyles"; // Adjust path as needed
 import { scale } from "../../Utills/Scalling";
 import { useNavigation } from "@react-navigation/native";
 
@@ -44,6 +44,9 @@ const INPUT_VALIDATION = {
 const DEBOUNCE_DELAY = 300;
 
 export default function Homescreen1() {
+  const { theme } = useTheme();
+  const styles = createHomeScreenStyles(theme);
+  
   const itemIdRef = useRef(null);
   const itemTagRef = useRef(null);
   const debounceTimerRef = useRef(null);
@@ -66,11 +69,8 @@ export default function Homescreen1() {
   );
 
   const handleFloatingButtonPress = useCallback(() => {
-    // Navigate to your desired screen
-    // Replace 'TargetScreen' with your actual screen name
     navigation.navigate('Home');
   }, [navigation]);
-
 
   useEffect(() => {
     return () => {
@@ -96,24 +96,22 @@ export default function Homescreen1() {
   const dynamicStyles = useMemo(
     () => ({
       submitButton: {
-        backgroundColor: COLORS.success,
+        backgroundColor: theme.COLORS.success,
         opacity: (itemId.trim() || itemTag.trim()) && !isProcessing ? 1 : 0.6,
       },
       refreshButton: {
-        backgroundColor: COLORS.warning,
+        backgroundColor: theme.COLORS.warning,
         opacity:
           (itemId.trim() || itemTag.trim() || hasSubmitted) && !isProcessing
             ? 1
             : 0.6,
       },
       iconButton: {
-        backgroundColor: COLORS.black,
+        backgroundColor: theme.COLORS.primary,
         opacity: !isProcessing ? 1 : 0.6,
-        height: 40,
-        width: 40,
       },
     }),
-    [itemId, itemTag, isProcessing, hasSubmitted]
+    [itemId, itemTag, isProcessing, hasSubmitted, theme]
   );
 
   const validateInput = useCallback(
@@ -229,7 +227,7 @@ export default function Homescreen1() {
 
   const handleScanned = useCallback((field, data) => {
     setIsScannedData(true);
-    Keyboard.dismiss(); // Hide keyboard when scanning
+    Keyboard.dismiss();
 
     if (data.includes("-")) {
       const [id, tag] = data.split("-");
@@ -288,7 +286,6 @@ export default function Homescreen1() {
     if (!estimationData) return [];
 
     try {
-      // If status is 'issued', show only issued info
       if (estimationData.status === "issued") {
         return [
           {
@@ -308,14 +305,9 @@ export default function Homescreen1() {
               : "",
             testID: "issue-trandate",
           },
-        ].filter(Boolean); // remove any nulls just in case
+        ].filter(Boolean);
       }
 
-
-
-
-
-      // Normal item details
       return [
         estimationData.ITEMNAME
           ? {
@@ -375,7 +367,7 @@ export default function Homescreen1() {
               testID: "grand-total",
             }
           : null,
-      ].filter(Boolean); // ✅ remove nulls so renderDetailItem won't crash
+      ].filter(Boolean);
     } catch (err) {
       console.error(err);
       return [];
@@ -386,7 +378,7 @@ export default function Homescreen1() {
     (label, value, field) => (
       <View style={styles.column}>
         <Text style={styles.label}>{label}</Text>
-        <View style={[styles.inputWithIcon]}>
+        <View style={styles.inputWithIcon}>
           <TextInput
             ref={field === SCANNING_FIELDS.ITEM_ID ? itemIdRef : itemTagRef}
             style={[
@@ -396,7 +388,7 @@ export default function Homescreen1() {
               ] && styles.inputError,
             ]}
             placeholder={"Enter Tagkey"}
-            placeholderTextColor={COLORS.placeholder}
+            placeholderTextColor={theme.COLORS.placeholder}
             value={value}
             onChangeText={(text) => handleManualInput(text, field)}
             returnKeyType="done"
@@ -407,14 +399,19 @@ export default function Homescreen1() {
             keyboardType="default"
           />
           <TouchableOpacity
-            style={[styles.iconButton, dynamicStyles.iconButton]}
+            style={[
+              styles.iconButton, 
+              dynamicStyles.iconButton,
+              isProcessing && styles.disabledIconButton
+            ]}
             onPress={() => openScanner(field)}
+            disabled={isProcessing}
             testID={`scan-button-${field}`}
           >
             <Ionicons
               name="camera-outline"
-              size={SIZES.h6}
-              color={COLORS.white}
+              size={theme.SIZES.h6}
+              color={theme.COLORS.buttonText}
             />
           </TouchableOpacity>
         </View>
@@ -431,7 +428,7 @@ export default function Homescreen1() {
         ) : null}
       </View>
     ),
-    [inputErrors, handleManualInput, handleSubmit, openScanner, dynamicStyles]
+    [inputErrors, handleManualInput, handleSubmit, openScanner, dynamicStyles, isProcessing, theme]
   );
 
   const renderActionButtons = useCallback(
@@ -444,6 +441,7 @@ export default function Homescreen1() {
               styles.actionButton,
               styles.submitButton,
               dynamicStyles.submitButton,
+              isSubmitDisabled && styles.disabledButton,
             ]}
             onPress={handleSubmit}
             disabled={isSubmitDisabled}
@@ -451,7 +449,7 @@ export default function Homescreen1() {
           >
             <Text style={styles.buttonText}>
               {loading || isProcessing ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={theme.COLORS.buttonText} />
               ) : (
                 "Submit"
               )}
@@ -462,6 +460,7 @@ export default function Homescreen1() {
               styles.actionButton,
               styles.refreshButton,
               dynamicStyles.refreshButton,
+              isRefreshDisabled && styles.disabledButton,
             ]}
             onPress={handleRefresh}
             disabled={isRefreshDisabled}
@@ -469,7 +468,7 @@ export default function Homescreen1() {
           >
             <Text style={styles.buttonText}>
               {isProcessing ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={theme.COLORS.buttonText} />
               ) : (
                 "Refresh"
               )}
@@ -486,6 +485,7 @@ export default function Homescreen1() {
       isRefreshDisabled,
       loading,
       isProcessing,
+      theme
     ]
   );
 
@@ -510,17 +510,15 @@ export default function Homescreen1() {
   }, []);
 
   const renderContent = useCallback(() => {
-    // Show loading state
     if (loading || isProcessing) {
       return (
         <View style={styles.center} testID="loading-container">
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={theme.COLORS.primary} />
           <Text style={styles.loadingText}>Loading estimation...</Text>
         </View>
       );
     }
 
-    // Show error state
     if (error) {
       return (
         <View style={styles.center} testID="error-container">
@@ -532,7 +530,6 @@ export default function Homescreen1() {
       );
     }
 
-    // Show initial placeholder when no submission has been made
     if (!hasSubmitted) {
       return (
         <Text style={styles.placeholderText} testID="placeholder-text">
@@ -541,7 +538,6 @@ export default function Homescreen1() {
       );
     }
 
-    // Show "No record found" message
     if (estimationData && estimationData.message === "No record found") {
       return (
         <View style={styles.center}>
@@ -552,7 +548,6 @@ export default function Homescreen1() {
       );
     }
 
-    // Show actual data
     if (estimationData) {
       return (
         <View style={styles.card} testID="estimation-card">
@@ -580,7 +575,6 @@ export default function Homescreen1() {
       );
     }
 
-    // Fallback placeholder
     return (
       <Text style={styles.placeholderText} testID="placeholder-text">
         Enter Item ID and Tag to view estimation.
@@ -595,13 +589,14 @@ export default function Homescreen1() {
     detailItems,
     renderDetailItem,
     handleRefresh,
+    theme
   ]);
 
   return (
     <>
       <Header />
 
-      <View
+      <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -611,7 +606,7 @@ export default function Homescreen1() {
           {renderActionButtons()}
         </View>
         {renderContent()}
-      </View>
+      </ScrollView>
 
       {/* Floating Action Button */}
       <TouchableOpacity
@@ -619,7 +614,7 @@ export default function Homescreen1() {
         onPress={handleFloatingButtonPress}
         testID="floating-action-button"
       >
-        <Ionicons name="home" size={24} color={COLORS.white} />
+        <Ionicons name="home" size={24} color={theme.COLORS.buttonText} />
       </TouchableOpacity>
 
       <Footer style={styles.footer} />
@@ -633,217 +628,3 @@ export default function Homescreen1() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: SIZES.padding,
-    backgroundColor: COLORS.background,
-    flexGrow: 1,
-    minHeight: "100%",
-  },
-  inputRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginVertical: SIZES.margin / 3,
-    gap: 10,
-  },
-  column: {
-    flex: 2, // Increased flex for larger input
-    marginHorizontal: 1,
-  },
-  buttonsColumn: {
-    flex: 1, // Reduced flex for buttons column
-    marginHorizontal: 1,
-  },
-  label: {
-    fontSize: SIZES.font,
-    marginBottom: 5,
-    color: COLORS.title,
-    ...FONTS.text,
-    alignSelf: "flex-start",
-    paddingLeft: 25,
-  },
-  inputWithIcon: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    width: scale(200),
-  },
-  itemName: {
-    fontSize: SIZES.h5,
-    fontWeight: "bold",
-    color: COLORS.primary,
-    textAlign: "center",
-    marginBottom: SIZES.margin - 5,
-  },
-
-  input: {
-    flex: 1,
-    backgroundColor: COLORS.input,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: SIZES.radius_sm,
-    borderWidth: 1,
-    borderColor: COLORS.borderColor,
-    fontSize: SIZES.font,
-    color: COLORS.text,
-    ...FONTS.font,
-    minHeight: 40,
-  },
-  inputError: {
-    borderColor: COLORS.danger,
-    borderWidth: 2,
-  },
-  errorMessage: {
-    fontSize: SIZES.font - 2,
-    color: COLORS.danger,
-    marginTop: 4,
-    paddingLeft: 10,
-    ...FONTS.text,
-  },
-  iconButton: {
-    marginLeft: 8,
-    padding: 8,
-    borderRadius: SIZES.radius_sm,
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  buttonsWrapper: {
-    flexDirection: "row",
-    gap: 3,
-    height: 40,
-    justifyContent: "center",
-    marginLeft: scale(-45),
-    paddingRight: scale(5),
-  },
-  actionButton: {
-    paddingVertical: 3, // Reduced padding
-    paddingHorizontal: 6, // Reduced padding
-    borderRadius: SIZES.radius_sm,
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100%",
-    flex: 1, // Both buttons take equal space
-    Width: 60, // Reduced minimum width
-  },
-  buttonText: {
-    color: COLORS.black,
-    fontSize: SIZES.font - 3, // Slightly smaller text
-    ...FONTS.text,
-    textAlign: "center",
-    fontWeight: "bold",
-  },
-  card: {
-    marginTop: SIZES.margin,
-    borderRadius: SIZES.radius,
-    padding: SIZES.padding,
-    backgroundColor: COLORS.card,
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  imageContainer: { alignItems: "center", marginBottom: SIZES.margin },
-  itemImage: {
-    width: 150,
-    height: 150,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.outline,
-  },
-  detailsContainer: { marginTop: 10 },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: SIZES.margin / 2,
-    alignItems: "center",
-  },
-  detailLabel: {
-    color: COLORS.text,
-    flex: 1,
-    ...FONTS.subheading,
-    fontSize: SIZES.h5,
-  },
-  detailValue: {
-    color: COLORS.black,
-    flex: 1,
-    textAlign: "left",
-    ...FONTS.text,
-    fontSize: SIZES.h6,
-  },
-  grandTotalRow: {
-    marginTop: SIZES.margin,
-    paddingTop: SIZES.padding / 2,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.outline,
-  },
-  grandTotalValue: { color: COLORS.danger, fontSize: SIZES.h4 },
-  gstValue: { color: COLORS.black, fontSize: SIZES.h6 - 3 },
-  subItemValue: { color: COLORS.black, fontSize: SIZES.h6 - 3 },
-  itemValue: { color: COLORS.black, fontSize: SIZES.h6 - 3 },
-  center: {
-    marginTop: SIZES.margin,
-    alignItems: "center",
-    paddingVertical: SIZES.padding * 2,
-  },
-  loadingText: {
-    marginTop: 10,
-    ...FONTS.font,
-    color: COLORS.text,
-  },
-  errorText: {
-    marginTop: SIZES.margin,
-    textAlign: "center",
-    ...FONTS.font,
-    color: COLORS.danger,
-    fontWeight: "bold",
-    marginBottom: SIZES.margin,
-  },
-  retryButton: {
-    marginTop: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius_sm,
-  },
-  retryButtonText: {
-    color: COLORS.white,
-    ...FONTS.text,
-    fontSize: SIZES.font,
-  },
-  placeholderText: {
-    marginTop: SIZES.margin * 2,
-    color: COLORS.textLight,
-    textAlign: "center",
-    ...FONTS.font,
-    fontSize: SIZES.h5,
-  },
-  footer: { position: "absolute", bottom: 0, left: 0, right: 0 },
-  floatingButton: {
-  position: 'absolute',
-  bottom: 80, // Distance from bottom edge
-  right: 20, // Distance from right edge
-  width: 60,
-  height: 60,
-  borderRadius: 30,
-  backgroundColor: COLORS.primary, // Customize as needed
-  justifyContent: 'center',
-  alignItems: 'center',
-
-  // Shadow (for iOS)
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.3,
-  shadowRadius: 4,
-
-  // Elevation (for Android)
-  elevation: 8,
-
-  // Make sure it's above other components
-  zIndex: 100,
-},
-
-});

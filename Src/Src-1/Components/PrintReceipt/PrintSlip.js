@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { usePrinterService } from "../../Service/IpServices";
-import { useApiBaseUrl } from "../../Config/Config";
+import { useApiBaseUrl } from "../../../Config/Config";
 import { fetchEstimationData, printEstimationToPrinter } from "../../Service/EstimationPrinterService";
 import EstimationPreviewModal from "../EstimationPreviewModal/EstimationPreviewModal";
 

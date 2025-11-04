@@ -4,9 +4,10 @@ import {
   View,
   Text,
   ScrollView,
-  StyleSheet,
   TouchableOpacity,
 } from "react-native";
+import { useTheme } from "../../../Context/ThemeContext"; // Adjust path as needed
+import { createEstimationPreviewModalStyles } from "./EstimationPreviewModalStyles"; // Adjust path as needed
 
 // Common utility functions
 export const formatDate = (dateString) => {
@@ -27,7 +28,16 @@ const getCurrentTime = () => {
 };
 
 // Preview Modal Component for Estimation Slip
-const EstimationPreviewModal = ({ visible, onClose, onPrint, slipData, currentPrinter }) => {
+const EstimationPreviewModal = ({ 
+  visible, 
+  onClose, 
+  onPrint, 
+  slipData, 
+  currentPrinter 
+}) => {
+  const { theme } = useTheme();
+  const styles = createEstimationPreviewModalStyles(theme);
+
   if (!slipData) return null;
 
   const {
@@ -259,10 +269,16 @@ const EstimationPreviewModal = ({ visible, onClose, onPrint, slipData, currentPr
           </ScrollView>
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={onClose}
+            >
               <Text style={styles.buttonText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.printButton} onPress={onPrint}>
+            <TouchableOpacity 
+              style={styles.printButton} 
+              onPress={onPrint}
+            >
               <Text style={styles.buttonText}>Print Now</Text>
             </TouchableOpacity>
           </View>
@@ -271,141 +287,5 @@ const EstimationPreviewModal = ({ visible, onClose, onPrint, slipData, currentPr
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalContent: {
-    backgroundColor: "white",
-    borderRadius: 10,
-    padding: 20,
-    width: "95%",
-    height: "90%",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: "center",
-    marginBottom: 15,
-    color: "#333",
-  },
-  printerInfo: {
-    fontSize: 12,
-    textAlign: "center",
-    marginBottom: 10,
-    color: "#666",
-    fontStyle: "italic",
-  },
-  previewContainer: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
-    padding: 15,
-    marginBottom: 15,
-    backgroundColor: "#f9f9f9",
-  },
-  section: {
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: "#333",
-    marginBottom: 2,
-  },
-  underline: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#333",
-    marginBottom: 8,
-  },
-  dashedLine: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#333",
-    borderStyle: "dashed",
-    marginVertical: 8,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  tableHeader: {
-    backgroundColor: "#e9ecef",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 3,
-  },
-  itemContainer: {
-    marginBottom: 8,
-    paddingLeft: 5,
-  },
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 2,
-  },
-  // Column widths matching receipt format
-  colDesc: {
-    flex: 4,
-    textAlign: "left",
-  },
-  colWeight: {
-    flex: 1.5,
-    textAlign: "right",
-  },
-  colVA: {
-    flex: 1,
-    textAlign: "right",
-  },
-  colAmount: {
-    flex: 1.5,
-    textAlign: "right",
-  },
-  text: {
-    fontSize: 10,
-    color: "#333",
-  },
-  boldText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: "#333",
-  },
-  totalsSection: {
-    marginTop: 10,
-  },
-  footer: {
-    alignItems: "center",
-    marginTop: 10,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  cancelButton: {
-    backgroundColor: "#6c757d",
-    padding: 12,
-    borderRadius: 5,
-    flex: 1,
-  },
-  printButton: {
-    backgroundColor: "#007bff",
-    padding: 12,
-    borderRadius: 5,
-    flex: 1,
-  },
-  buttonText: {
-    color: "white",
-    textAlign: "center",
-    fontSize: 16,
-  },
-});
 
 export default EstimationPreviewModal;

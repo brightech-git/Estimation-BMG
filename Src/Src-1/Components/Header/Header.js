@@ -2,71 +2,79 @@ import React, { useEffect, useState, useContext } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
   Image,
+  Animated,
+  Dimensions,
+  StyleSheet,
 } from "react-native";
-
-import { LoginContext } from "../../Context/LoginContext";
 import { useNavigation } from "@react-navigation/native";
-import { COLORS, FONTS, SIZES } from "../../Utills/Theme";
-import { scale, verticalScale, moderateScale } from "../../Utills/Scalling";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { PureNativeButton } from "react-native-gesture-handler";
-import { useApiBaseUrl } from "../../Config/Config";
+import { LoginContext } from "../../../Context/LoginContext";
+import { useApiBaseUrl } from "../../../Config/Config";
+import { useTheme } from "../../../Context/ThemeContext";
+import getStyles from "./HeaderStyles";
+
+const { width, height } = Dimensions.get("window");
 
 const MainHeader = () => {
   const [goldRate, setGoldRate] = useState(null);
   const [silverRate, setSilverRate] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingRates, setLoadingRates] = useState(true);
   const [error, setError] = useState(false);
   const [rateUpdated, setRateUpdated] = useState(null);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+
   const API_BASE_URL = useApiBaseUrl();
-
-
-  const { username } = useContext(LoginContext);
   const navigation = useNavigation();
-  const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const styles = getStyles(theme);
 
-  const formatDateTime = () => {
-    const day = String(currentDateTime.getDate()).padStart(2, "0");
-    const month = String(currentDateTime.getMonth() + 1).padStart(2, "0");
-    const year = currentDateTime.getFullYear();
+  // ✅ FIX: Initialize animated value properly
+  const slideAnim = useState(new Animated.Value(width))[0];
 
-    const date = `${day}-${month}-${year}`;
-    const time = currentDateTime.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+  const {
+    username,
+    companyName,
+    companyLogo,
+    companyLogoUrl,
+    logout,
+    loading: contextLoading,
+  } = useContext(LoginContext);
 
-    return { date, time };
+  const companyLogoFullPath = companyLogoUrl
+    ? `${companyLogoUrl.replace(/\/$/, "")}/${encodeURI(
+        companyLogo?.replace(/^\//, "") || ""
+      )}`
+    : null;
+
+      const handleLogout = async () => {
+    await logout();
+    navigation.replace("Login"); // 👈 Ensures navigation resets
   };
 
-  const { date } = formatDateTime();
+  const [currentDateTime] = useState(new Date());
+  const date = `${String(currentDateTime.getDate()).padStart(2, "0")}-${String(
+    currentDateTime.getMonth() + 1
+  ).padStart(2, "0")}-${currentDateTime.getFullYear()}`;
 
   const fetchRates = async () => {
-    setLoading(true);
+    setLoadingRates(true);
     setError(false);
-
     try {
       const response = await fetch(`${API_BASE_URL}/todayrate`);
       if (!response.ok) throw new Error("Failed to fetch");
       const data = await response.json();
-
-      if (data?.GOLDRATE && data?.SILVERRATE) {
-        setGoldRate(data.GOLDRATE);
-        setSilverRate(data.SILVERRATE);
-        setRateUpdated(new Date().toLocaleTimeString("en-GB"));
-      } else throw new Error("Invalid data");
-    } catch (err) {
-      console.error("Error fetching rates:", err.message);
+      setGoldRate(data.GOLDRATE);
+      setSilverRate(data.SILVERRATE);
+      setRateUpdated(new Date().toLocaleTimeString("en-GB"));
+    } catch {
       setError(true);
     } finally {
-      setLoading(false);
+      setLoadingRates(false);
     }
   };
 
@@ -76,42 +84,71 @@ const MainHeader = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const openDrawer = () => {
+    setDrawerVisible(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeDrawer = () => {
+    Animated.timing(slideAnim, {
+      toValue: width,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => setDrawerVisible(false));
+  };
+
+  if (contextLoading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color={theme.COLORS.primary} />
+        <Text style={styles.loaderText}>Loading company info...</Text>
+      </View>
+    );
+  }
+
   return (
     <LinearGradient
-      colors={[COLORS.background, COLORS.secondary]}
+      colors={theme.COLORS.gradientPrimary}
       style={styles.gradientBackground}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* 🔹 Top Header Section */}
-        <View style={styles.TopSection}>
-          {/* Left: Settings Icon */}
-          <TouchableOpacity
-            style={styles.iconContainer}
-            onPress={() => navigation.navigate("Print")}
-          >
-            <Ionicons name="settings-outline" size={28} color={COLORS.primary} />
+      <View style={styles.scrollContainer}>
+        {/* 🔹 HEADER */}
+        <View style={styles.topSection}>
+          {/* Left: Theme Toggle */}
+          <TouchableOpacity style={styles.iconContainer} onPress={toggleTheme}>
+            <Ionicons
+              name={isDarkMode ? "sunny-outline" : "moon-outline"}
+              size={styles.iconSize + 2}
+              color={theme.COLORS.warning}
+            />
           </TouchableOpacity>
 
           {/* Center: Company Logo + Name */}
           <View style={styles.companySection}>
-            <Image
-              source={require("../../../../assets/icon.png")}
-              style={styles.companyLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.companyName}>BMG JEWELLERS PVT LTD</Text>
+            <Text style={styles.companyName}>
+              {companyName || "Company Name"}
+            </Text>
           </View>
 
-          {/* Right: Menu Icon */}
-          {/* <TouchableOpacity
+          {/* Right: Drawer Toggle */}
+          <TouchableOpacity
             style={styles.iconContainer}
-            onPress={() => navigation.navigate("Homescreen1")}
+            onPress={openDrawer}
+            testID="menu-button"
           >
-            <MaterialIcons name="menu" size={30} color={COLORS.primary} />
-          </TouchableOpacity> */}
+            <Ionicons
+              name="menu-outline"
+              size={styles.iconSize}
+              color={theme.COLORS.warning}
+            />
+          </TouchableOpacity>
         </View>
 
-        {/* 🔹 Info Section */}
+        {/* 🔹 INFO CARD */}
         <View style={styles.infoCard}>
           <View style={styles.infoSection}>
             <View style={styles.infoRow}>
@@ -121,7 +158,12 @@ const MainHeader = () => {
             <View style={styles.infoRow}>
               <Text style={styles.label}>🏅 Gold Rate :</Text>
               <Text style={styles.value}>
-                ₹ {loading ? "Loading..." : error ? "Error" : goldRate}
+                ₹{" "}
+                {loadingRates
+                  ? "Loading..."
+                  : error
+                  ? "Error"
+                  : goldRate?.toLocaleString() ?? "N/A"}
               </Text>
             </View>
           </View>
@@ -134,7 +176,12 @@ const MainHeader = () => {
             <View style={styles.infoRow}>
               <Text style={styles.label}>🥈 Silver Rate :</Text>
               <Text style={styles.value}>
-                ₹ {loading ? "Loading..." : error ? "Error" : silverRate}
+                ₹{" "}
+                {loadingRates
+                  ? "Loading..."
+                  : error
+                  ? "Error"
+                  : silverRate?.toLocaleString() ?? "N/A"}
               </Text>
             </View>
           </View>
@@ -145,160 +192,101 @@ const MainHeader = () => {
             </Text>
           )}
         </View>
+      </View>
 
-        {/* 🔹 Buttons */}
-        <View style={styles.buttonContainer}>
-          {/* <TouchableOpacity
-            style={styles.button}
-            onPress={() => navigation.navigate("Print")}
-          >
-            <Text style={styles.buttonText}>🛒 Print</Text>
-          </TouchableOpacity> */}
+      {/* 🔹 Drawer Overlay */}
+      {drawerVisible && (
+        <>
+          {/* 🔹 Background Overlay */}
+          <TouchableOpacity
+            style={styles.drawerOverlay}
+            activeOpacity={1}
+            onPress={closeDrawer}
+          />
 
-          {/* <TouchableOpacity
-            style={[styles.button, styles.refreshButton]}
-            onPress={fetchRates}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.buttonText}>🔄 Refresh</Text>
-            )}
-          </TouchableOpacity> */}
-        </View>
-      </ScrollView>
+          {/* 🔹 Sliding Drawer - NOW TAKES HALF SCREEN VERTICALLY */}
+          <Animated.View style={styles.drawerContainer}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.closeDrawer}
+                onPress={closeDrawer}
+              >
+                <Ionicons
+                  name="close-outline"
+                  size={30}
+                  color={theme.COLORS.title}
+                />
+              </TouchableOpacity>
+
+              <View style={styles.drawerHeader}>
+                <Image
+                  source={
+                    companyLogoFullPath
+                      ? { uri: companyLogoFullPath }
+                      : require("../../../../assets/brightechlogo.png")
+                  }
+                  style={styles.drawerLogo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.drawerCompanyName}>
+                  {companyName || "Company Name"}
+                </Text>
+              </View>
+
+              {/* Drawer Items */}
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  closeDrawer();
+                  navigation.navigate("Print");
+                }}
+              >
+                <MaterialIcons
+                  name="print"
+                  size={26}
+                  color={theme.COLORS.iconPrimary}
+                />
+                <Text style={styles.drawerText}>Print</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  closeDrawer();
+                  navigation.navigate("Homescreen1");
+                }}
+              >
+                <Ionicons
+                  name="home-outline"
+                  size={26}
+                  color={theme.COLORS.iconPrimary}
+                />
+                <Text style={styles.drawerText}>Home</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.drawerItem}
+                onPress={() => {
+                  handleLogout();
+                }}
+              >
+                <Ionicons
+                  name="log-out-outline"
+                  size={26}
+                  color={theme.COLORS.danger}
+                />
+                <Text
+                  style={[styles.drawerText, { color: theme.COLORS.danger }]}
+                >
+                  Logout
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        </>
+      )}
     </LinearGradient>
   );
 };
-
-const styles = StyleSheet.create({
-  gradientBackground: {
-    flex: 1,
-    borderBottomLeftRadius: moderateScale(12),
-    borderBottomRightRadius: moderateScale(12),
-    marginBottom: verticalScale(10),
-  },
-
-  scrollContainer: {
-    paddingVertical: verticalScale(10),
-    paddingHorizontal: scale(10),
-    alignItems: "center",
-
-  },
-
-  TopSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    marginBottom: verticalScale(5),
-    paddingTop: verticalScale(5),
-  },
-
-  iconContainer: {
-    padding: scale(2),
-    marginBottom: verticalScale(3),
-  },
-
-  companySection: {
-    position: "absolute", // keeps logo & text centered regardless of icons
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  companyLogo: {
-    width: scale(30),
-    height: scale(30),
-    marginRight: scale(8),
-    borderRadius: moderateScale(15),
-  },
-
-  companyName: {
-    color: COLORS.primary,
-    fontSize: moderateScale(SIZES.h6-3),
-    letterSpacing: scale(1.5),
-    textShadowColor: COLORS.primary,
-    textShadowOffset: { width: 0, height: verticalScale(1) },
-    textShadowRadius: moderateScale(8),
-    ...FONTS.heading,
-  },
-
-  infoCard: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: moderateScale(12),
-    paddingVertical: verticalScale(10),
-    paddingHorizontal: scale(15),
-    width: "100%",
-  },
-
-  infoSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: verticalScale(6),
-    borderBottomWidth: 0.3,
-    borderBottomColor: "#bbb",
-  },
-
-  label: {
-    color: COLORS.black,
-    marginRight: scale(8),
-    fontSize: moderateScale(SIZES.fontSm),
-    ...FONTS.subheading,
-  },
-
-  value: {
-    color: COLORS.primary,
-    fontSize: moderateScale(SIZES.font),
-    ...FONTS.text,
-  },
-
-  updatedText: {
-    marginTop: verticalScale(8),
-    textAlign: "right",
-    color: "#444",
-    fontSize: moderateScale(11),
-  },
-
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: scale(12),
-    marginTop: verticalScale(20),
-  },
-
-  button: {
-    backgroundColor: "#721b9aff",
-    paddingVertical: verticalScale(8),
-    paddingHorizontal: scale(14),
-    borderRadius: moderateScale(8),
-    minWidth: scale(110),
-    alignItems: "center",
-  },
-
-  refreshButton: {
-    backgroundColor: "#6a1b9a",
-    paddingVertical: verticalScale(8),
-    paddingHorizontal: scale(14),
-    borderRadius: moderateScale(8),
-    minWidth: scale(110),
-    alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#fff",
-    fontSize: moderateScale(13),
-    fontWeight: "600",
-  },
-});
 
 export default MainHeader;

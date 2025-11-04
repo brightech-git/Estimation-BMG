@@ -1,8 +1,10 @@
-// theme.js
-import { Dimensions } from 'react-native';
-const { width, height } = Dimensions.get('screen');
+// 📁 src/Utills/Theme.js
+import { Dimensions } from "react-native";
+import { DEVICE, moderateScale } from "./Scalling";
 
-// Colors
+const { width, height } = Dimensions.get("screen");
+
+// 🎨 Colors
 export const COLORS = {
   background: "#FFFFFF",
   card: "#F9F9F9",
@@ -36,47 +38,101 @@ export const COLORS = {
   gradientText: ["#2E6F95", "#C62828"],
 };
 
-// Sizes
+// 🔢 Base sizes (auto-adjust for tablets)
+const baseFont = DEVICE.isTablet ? 18 : 14;
+const baseHeading = DEVICE.isTablet ? 22 : 16;
+
 export const SIZES = {
-  fontLg: 16,
-  font: 14,
-  fontSm: 13,
-  fontXs: 12,
-  radius_sm: 8,
-  radius: 12,
-  radius_lg: 16,
-  padding: 16,
-  margin: 16,
-  h1: 32,
-  h2: 28,
-  h3: 24,
-  h4: 20,
-  h5: 18,
-  h6: 16,
+  fontLg: baseFont + 2,
+  font: baseFont,
+  fontSm: baseFont - 1,
+  fontXs: baseFont - 2,
+  radius_sm: DEVICE.isTablet ? 12 : 8,
+  radius: DEVICE.isTablet ? 18 : 12,
+  radius_lg: DEVICE.isTablet ? 22 : 16,
+  padding: DEVICE.isTablet ? 20 : 16,
+  margin: DEVICE.isTablet ? 20 : 16,
+  h1: baseHeading + 16,
+  h2: baseHeading + 12,
+  h3: baseHeading + 8,
+  h4: baseHeading + 4,
+  h5: baseHeading + 2,
+  h6: baseHeading,
   width,
   height,
 };
 
-// Fonts
+// 🧾 Fonts
 export const FONTS = {
-  fontLg: { fontSize: SIZES.fontLg, color: COLORS.text, lineHeight: 24, fontFamily: 'TimesNewRoman' },
-  font: { fontSize: SIZES.font, color: COLORS.text, lineHeight: 20, fontFamily: 'TimesNewRoman' },
-  fontSm: { fontSize: SIZES.fontSm, color: COLORS.text, lineHeight: 18, fontFamily: 'TimesNewRoman' },
-  fontXs: { fontSize: SIZES.fontXs, color: COLORS.text, lineHeight: 16, fontFamily: 'TimesNewRoman' },
+  fontLg: {
+    fontSize: moderateScale(SIZES.fontLg),
+    color: COLORS.text,
+    lineHeight: DEVICE.isTablet ? 28 : 24,
+    fontFamily: "TimesNewRoman",
+  },
+  font: {
+    fontSize: moderateScale(SIZES.font),
+    color: COLORS.text,
+    lineHeight: DEVICE.isTablet ? 24 : 20,
+    fontFamily: "TimesNewRoman",
+  },
+  fontSm: {
+    fontSize: moderateScale(SIZES.fontSm),
+    color: COLORS.text,
+    lineHeight: DEVICE.isTablet ? 22 : 18,
+    fontFamily: "TimesNewRoman",
+  },
+  fontXs: {
+    fontSize: moderateScale(SIZES.fontXs),
+    color: COLORS.text,
+    lineHeight: DEVICE.isTablet ? 20 : 16,
+    fontFamily: "TimesNewRoman",
+  },
 
-  h1: { fontSize: SIZES.h1, color: COLORS.title, fontFamily: 'TrajanProBold', lineHeight: 40 },
-  h2: { fontSize: SIZES.h2, color: COLORS.title, fontFamily: 'TrajanProBold', lineHeight: 36 },
-  h3: { fontSize: SIZES.h3, color: COLORS.title, fontFamily: 'DMSerif', lineHeight: 32 },
-  h4: { fontSize: SIZES.h4, color: COLORS.title, fontFamily: 'DMSerif', lineHeight: 28 },
-  h5: { fontSize: SIZES.h5, color: COLORS.title, fontFamily: 'DMSerif', lineHeight: 26 },
-  h6: { fontSize: SIZES.h6, color: COLORS.title, fontFamily: 'DMSerif', lineHeight: 24 },
+  // Headings
+  h1: {
+    fontSize: moderateScale(SIZES.h1),
+    color: COLORS.title,
+    fontFamily: "TrajanProBold",
+    lineHeight: DEVICE.isTablet ? 48 : 40,
+  },
+  h2: {
+    fontSize: moderateScale(SIZES.h2),
+    color: COLORS.title,
+    fontFamily: "TrajanProBold",
+    lineHeight: DEVICE.isTablet ? 44 : 36,
+  },
+  h3: {
+    fontSize: moderateScale(SIZES.h3),
+    color: COLORS.title,
+    fontFamily: "DMSerif",
+    lineHeight: DEVICE.isTablet ? 38 : 32,
+  },
+  h4: {
+    fontSize: moderateScale(SIZES.h4),
+    color: COLORS.title,
+    fontFamily: "DMSerif",
+    lineHeight: DEVICE.isTablet ? 34 : 28,
+  },
+  h5: {
+    fontSize: moderateScale(SIZES.h5),
+    color: COLORS.title,
+    fontFamily: "DMSerif",
+    lineHeight: DEVICE.isTablet ? 30 : 26,
+  },
+  h6: {
+    fontSize: moderateScale(SIZES.h6),
+    color: COLORS.title,
+    fontFamily: "DMSerif",
+    lineHeight: DEVICE.isTablet ? 28 : 24,
+  },
 
-  heading: { fontFamily: 'TrajanProBold', lineHeight: 35 },
-  subheading: { fontFamily: 'DMSerif', fontWeight: '500' },
-  body: { fontFamily: 'DancingScript', fontWeight: '600' },
-  text: { fontFamily: 'Domine', fontWeight: '400' },
+  heading: { fontFamily: "TrajanProBold", lineHeight: DEVICE.isTablet ? 40 : 35 },
+  subheading: { fontFamily: "DMSerif", fontWeight: "500" },
+  body: { fontFamily: "DancingScript", fontWeight: "600" },
+  text: { fontFamily: "Domine", fontWeight: "400" },
 };
 
-// Export theme
-const appTheme = { COLORS, SIZES, FONTS };
+// 🚀 Export the combined theme
+const appTheme = { COLORS, SIZES, FONTS, DEVICE };
 export default appTheme;

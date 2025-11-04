@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
   ScrollView,
   FlatList,
   Modal,
   TouchableWithoutFeedback,
   ActivityIndicator,
-  Alert
+  Alert,
 } from "react-native";
-import appTheme from "../../Utills/Theme";
+import { useTheme } from "../../../Context/ThemeContext"; // Adjust path as needed
 import { usePrinterService } from "../../Service/IpServices";
 import { useToast } from "../../Context/ToastContext";
+import { createPrinterSettingsStyles } from "./PrinterStyles"; // Adjust path as needed
+import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
 // Constants
 const DEFAULT_PORT = "9100";
@@ -24,27 +27,29 @@ const MAX_PORT = 65535;
 const PREVIEW_PRINTER_COUNT = 3;
 
 // Helper function to safely convert ID to string
-const safeIdToString = (id) => id?.toString() ?? '';
+const safeIdToString = (id) => id?.toString() ?? "";
 
 // Helper function to validate IP address with proper range checking
 const isValidIP = (ip) => {
   if (!IP_PATTERN.test(ip)) return false;
-  return ip.split('.').every(octet => {
+  return ip.split(".").every((octet) => {
     const num = parseInt(octet, 10);
     return num >= 0 && num <= 255;
   });
 };
 
 const PrinterSettings = () => {
+  const { theme } = useTheme();
+  const styles = createPrinterSettingsStyles(theme);
   const { showToast } = useToast();
   const printerService = usePrinterService();
-  
+  const navigation = useNavigation();
   // State management
   const [printerList, setPrinterList] = useState([]);
   const [currentPrinter, setCurrentPrinterState] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   const [host, setHost] = useState("");
   const [port, setPort] = useState(DEFAULT_PORT);
   const [printerName, setPrinterName] = useState("");
@@ -74,11 +79,13 @@ const PrinterSettings = () => {
     try {
       setIsLoading(true);
       const printers = await printerService.getAllPrinters();
-      
+
       setPrinterList(printers || []);
-      
+
       // Find active printer - using the data structure from your API
-      const activePrinter = printers?.find(printer => printer.active === true);
+      const activePrinter = printers?.find(
+        (printer) => printer.active === true
+      );
       setCurrentPrinterState(activePrinter || null);
     } catch (error) {
       console.error("Error loading printer data:", error);
@@ -99,13 +106,24 @@ const PrinterSettings = () => {
     }
 
     if (!isValidIP(trimmedHost)) {
-      showToast("Please enter a valid IP address (e.g., 192.168.1.100)", "warning");
+      showToast(
+        "Please enter a valid IP address (e.g., 192.168.1.100)",
+        "warning"
+      );
       return false;
     }
 
     const portNum = Number(trimmedPort);
-    if (!trimmedPort || isNaN(portNum) || portNum < MIN_PORT || portNum > MAX_PORT) {
-      showToast(`Please enter a valid port number (${MIN_PORT}-${MAX_PORT})`, "warning");
+    if (
+      !trimmedPort ||
+      isNaN(portNum) ||
+      portNum < MIN_PORT ||
+      portNum > MAX_PORT
+    ) {
+      showToast(
+        `Please enter a valid port number (${MIN_PORT}-${MAX_PORT})`,
+        "warning"
+      );
       return false;
     }
 
@@ -118,12 +136,12 @@ const PrinterSettings = () => {
 
     setIsSaving(true);
     const printerDisplayName = printerName.trim() || `Printer ${host.trim()}`;
-    
+
     const printerData = {
       ipAddress: host.trim(),
       port: Number(port),
       name: printerDisplayName,
-      active: editingPrinter?.active || false
+      active: editingPrinter?.active || false,
     };
 
     try {
@@ -135,63 +153,80 @@ const PrinterSettings = () => {
         await printerService.createPrinter(printerData);
         showToast("Printer added successfully!", "success");
       }
-      
+
       await loadPrinterData();
       setEditingPrinter(null);
-      
+
       if (!editingPrinter) {
         resetForm();
       }
     } catch (error) {
-      showToast(error.message || "Failed to save printer configuration", "error");
+      showToast(
+        error.message || "Failed to save printer configuration",
+        "error"
+      );
       console.error(error);
     } finally {
       setIsSaving(false);
     }
-  }, [validateInput, isSaving, printerName, host, port, editingPrinter, printerService, loadPrinterData, showToast]);
+  }, [
+    validateInput,
+    isSaving,
+    printerName,
+    host,
+    port,
+    editingPrinter,
+    printerService,
+    loadPrinterData,
+    showToast,
+  ]);
 
   // Set printer as active
-  const handleSetCurrentPrinter = useCallback(async (printer) => {
-    try {
-      const updatePromises = printerList.map(async (p) => {
-        const isTargetPrinter = p.id === printer.id;
-        const shouldUpdate = isTargetPrinter || p.active;
-        
-        if (!shouldUpdate) return p;
-        
-        return await printerService.updatePrinter({
-          id: p.id,
-          ipAddress: p.ip_address,
-          port: p.port,
-          name: p.name,
-          active: isTargetPrinter
+  const handleSetCurrentPrinter = useCallback(
+    async (printer) => {
+      try {
+        const updatePromises = printerList.map(async (p) => {
+          const isTargetPrinter = p.id === printer.id;
+          const shouldUpdate = isTargetPrinter || p.active;
+
+          if (!shouldUpdate) return p;
+
+          return await printerService.updatePrinter({
+            id: p.id,
+            ipAddress: p.ip_address,
+            port: p.port,
+            name: p.name,
+            active: isTargetPrinter,
+          });
         });
-      });
 
-      await Promise.all(updatePromises);
-      await loadPrinterData();
+        await Promise.all(updatePromises);
+        await loadPrinterData();
 
-      setShowPrinterList(false);
-      showToast(`Current printer set to ${printer.name}`, "success");
-    } catch (error) {
-      console.error("Error in handleSetCurrentPrinter:", error);
-      showToast(error.message || "Failed to set current printer", "error");
-    }
-  }, [printerList, printerService, loadPrinterData, showToast]);
+        setShowPrinterList(false);
+        showToast(`Current printer set to ${printer.name}`, "success");
+      } catch (error) {
+        console.error("Error in handleSetCurrentPrinter:", error);
+        showToast(error.message || "Failed to set current printer", "error");
+      }
+    },
+    [printerList, printerService, loadPrinterData, showToast]
+  );
 
   // Clear active printer
   const clearCurrentPrinter = useCallback(async () => {
     try {
       const updatePromises = printerList
-        .filter(p => p.active)
-        .map(async (p) => 
-          await printerService.updatePrinter({
-            id: p.id,
-            ipAddress: p.ip_address,
-            port: p.port,
-            name: p.name,
-            active: false
-          })
+        .filter((p) => p.active)
+        .map(
+          async (p) =>
+            await printerService.updatePrinter({
+              id: p.id,
+              ipAddress: p.ip_address,
+              port: p.port,
+              name: p.name,
+              active: false,
+            })
         );
 
       await Promise.all(updatePromises);
@@ -213,29 +248,32 @@ const PrinterSettings = () => {
   }, []);
 
   // Delete printer
-  const handleDeletePrinter = useCallback((printer) => {
-    Alert.alert(
-      "Delete Printer",
-      `Are you sure you want to delete "${printer.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await printerService.deletePrinter(printer.id);
-              await loadPrinterData();
-              showToast("Printer deleted successfully", "success");
-            } catch (error) {
-              showToast(error.message || "Failed to delete printer", "error");
-              console.error(error);
-            }
-          }
-        }
-      ]
-    );
-  }, [printerService, loadPrinterData, showToast]);
+  const handleDeletePrinter = useCallback(
+    (printer) => {
+      Alert.alert(
+        "Delete Printer",
+        `Are you sure you want to delete "${printer.name}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await printerService.deletePrinter(printer.id);
+                await loadPrinterData();
+                showToast("Printer deleted successfully", "success");
+              } catch (error) {
+                showToast(error.message || "Failed to delete printer", "error");
+                console.error(error);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [printerService, loadPrinterData, showToast]
+  );
 
   // Reset form
   const resetForm = useCallback(() => {
@@ -248,10 +286,10 @@ const PrinterSettings = () => {
   // Clear all printers
   const handleClearAllPrinters = useCallback(async () => {
     try {
-      await Promise.all(printerList.map(printer => 
-        printerService.deletePrinter(printer.id)
-      ));
-      
+      await Promise.all(
+        printerList.map((printer) => printerService.deletePrinter(printer.id))
+      );
+
       await loadPrinterData();
       setShowClearConfirm(false);
       showToast("All printers have been deleted", "success");
@@ -270,12 +308,13 @@ const PrinterSettings = () => {
   // Filter printers based on search query
   const filteredPrinters = useMemo(() => {
     if (!searchQuery) return printerList;
-    
+
     const query = searchQuery.toLowerCase();
-    return printerList.filter(printer => 
-      printer.name.toLowerCase().includes(query) ||
-      (printer.ip_address || "").includes(query) ||
-      printer.port.toString().includes(query)
+    return printerList.filter(
+      (printer) =>
+        printer.name.toLowerCase().includes(query) ||
+        (printer.ip_address || "").includes(query) ||
+        printer.port.toString().includes(query)
     );
   }, [printerList, searchQuery]);
 
@@ -289,58 +328,60 @@ const PrinterSettings = () => {
       // Then by last used or created date
       const aDate = new Date(a.last_used || a.created_at);
       const bDate = new Date(b.last_used || b.created_at);
-      
+
       return bDate - aDate;
     });
   }, [filteredPrinters]);
 
   // Render individual printer item
-  const renderPrinterItem = useCallback(({ item }) => {
-    const isCurrent = item.active === true;
-    
-    return (
-      <View style={[
-        styles.printerItem,
-        isCurrent && styles.currentPrinterItem
-      ]}>
-        <View style={styles.printerInfo}>
-          <Text style={styles.printerName}>{item.name}</Text>
-          <Text style={styles.printerAddress}>
-            {item.ip_address}:{item.port}
-          </Text>
-          {isCurrent && (
-            <View style={styles.printerMeta}>
-              <View style={styles.currentBadge}>
-                <Text style={styles.currentBadgeText}>ACTIVE</Text>
+  const renderPrinterItem = useCallback(
+    ({ item }) => {
+      const isCurrent = item.active === true;
+
+      return (
+        <View
+          style={[styles.printerItem, isCurrent && styles.currentPrinterItem]}
+        >
+          <View style={styles.printerInfo}>
+            <Text style={styles.printerName}>{item.name}</Text>
+            <Text style={styles.printerAddress}>
+              {item.ip_address}:{item.port}
+            </Text>
+            {isCurrent && (
+              <View style={styles.printerMeta}>
+                <View style={styles.currentBadge}>
+                  <Text style={styles.currentBadgeText}>ACTIVE</Text>
+                </View>
               </View>
-            </View>
-          )}
-        </View>
-        <View style={styles.printerActions}>
-          {!isCurrent && (
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.selectButton]}
-              onPress={() => handleSetCurrentPrinter(item)}
+            )}
+          </View>
+          <View style={styles.printerActions}>
+            {!isCurrent && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.selectButton]}
+                onPress={() => handleSetCurrentPrinter(item)}
+              >
+                <Text style={styles.actionButtonText}>Select</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.editButton]}
+              onPress={() => handleEditPrinter(item)}
             >
-              <Text style={styles.actionButtonText}>Select</Text>
+              <Text style={styles.actionButtonText}>Edit</Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.editButton]}
-            onPress={() => handleEditPrinter(item)}
-          >
-            <Text style={styles.actionButtonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => handleDeletePrinter(item)}
-          >
-            <Text style={styles.actionButtonText}>Delete</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => handleDeletePrinter(item)}
+            >
+              <Text style={styles.actionButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    );
-  }, [handleSetCurrentPrinter, handleEditPrinter, handleDeletePrinter]);
+      );
+    },
+    [handleSetCurrentPrinter, handleEditPrinter, handleDeletePrinter, styles]
+  );
 
   // Key extractor for FlatList
   const keyExtractor = useCallback((item) => safeIdToString(item.id), []);
@@ -349,7 +390,7 @@ const PrinterSettings = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={appTheme.COLORS.primary} />
+        <ActivityIndicator size="large" color={theme.COLORS.primary} />
         <Text style={styles.loadingText}>Loading printer settings...</Text>
       </View>
     );
@@ -359,13 +400,21 @@ const PrinterSettings = () => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcons name="arrow-back" size={24} color={theme.COLORS.buttonText} />
+        </TouchableOpacity>
+
         <Text style={styles.mainTitle}>Printer Configuration</Text>
-        <TouchableOpacity 
-          style={styles.refreshButton} 
+
+        <TouchableOpacity
+          style={[styles.refreshButton, isLoading && styles.disabledButton]}
           onPress={refreshPrinters}
           disabled={isLoading}
         >
-          <Text style={styles.refreshButtonText}>⟳</Text>
+          <MaterialIcons name="refresh" size={20} color={theme.COLORS.buttonText} />
         </TouchableOpacity>
       </View>
 
@@ -380,11 +429,13 @@ const PrinterSettings = () => {
           <Text style={styles.currentPrinterAddress}>
             {currentPrinter.ip_address}:{currentPrinter.port}
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.clearCurrentButton}
             onPress={clearCurrentPrinter}
           >
-            <Text style={styles.clearCurrentButtonText}>Clear Active Printer</Text>
+            <Text style={styles.clearCurrentButtonText}>
+              Clear Active Printer
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -401,30 +452,30 @@ const PrinterSettings = () => {
             </TouchableOpacity>
           )}
         </View>
-        
+
         <Text style={styles.label}>Printer Name (Optional)</Text>
         <TextInput
           style={styles.input}
           value={printerName}
           onChangeText={setPrinterName}
           placeholder="e.g. Kitchen Printer, Counter Printer"
-          placeholderTextColor="#999"
+          placeholderTextColor={theme.COLORS.placeholder}
           editable={!isSaving}
         />
-        
+
         <Text style={styles.label}>Printer IP Address *</Text>
         <TextInput
           style={styles.input}
           value={host}
           onChangeText={setHost}
           placeholder="e.g. 192.168.0.8"
-          placeholderTextColor="#999"
+          placeholderTextColor={theme.COLORS.placeholder}
           keyboardType="numeric"
           editable={!isSaving}
           autoCapitalize="none"
           autoCorrect={false}
         />
-        
+
         <Text style={styles.label}>Port *</Text>
         <TextInput
           style={styles.input}
@@ -432,17 +483,17 @@ const PrinterSettings = () => {
           onChangeText={setPort}
           placeholder={DEFAULT_PORT}
           keyboardType="numeric"
-          placeholderTextColor="#999"
+          placeholderTextColor={theme.COLORS.placeholder}
           editable={!isSaving}
         />
-        
-        <TouchableOpacity 
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+
+        <TouchableOpacity
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
           onPress={handleSavePrinter}
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={theme.COLORS.buttonText} />
           ) : (
             <Text style={styles.buttonText}>
               {editingPrinter ? "Update" : "Add Printer"}
@@ -459,7 +510,7 @@ const PrinterSettings = () => {
           </Text>
           <View style={styles.sectionActions}>
             {printerList.length > PREVIEW_PRINTER_COUNT && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.manageButton}
                 onPress={() => setShowPrinterList(true)}
               >
@@ -467,7 +518,7 @@ const PrinterSettings = () => {
               </TouchableOpacity>
             )}
             {printerList.length > 0 && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.clearAllButton}
                 onPress={() => setShowClearConfirm(true)}
               >
@@ -506,20 +557,22 @@ const PrinterSettings = () => {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>All Printers ({printerList.length})</Text>
-                
+                <Text style={styles.modalTitle}>
+                  All Printers ({printerList.length})
+                </Text>
+
                 {printerList.length > 0 && (
                   <TextInput
                     style={styles.searchInput}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholder="Search printers..."
-                    placeholderTextColor="#999"
+                    placeholderTextColor={theme.COLORS.placeholder}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
                 )}
-                
+
                 {filteredPrinters.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyText}>
@@ -535,9 +588,9 @@ const PrinterSettings = () => {
                     showsVerticalScrollIndicator={false}
                   />
                 )}
-                
+
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.secondaryButton}
                     onPress={() => {
                       setShowPrinterList(false);
@@ -564,16 +617,18 @@ const PrinterSettings = () => {
           <View style={styles.confirmModal}>
             <Text style={styles.confirmTitle}>Delete All Printers?</Text>
             <Text style={styles.confirmMessage}>
-              This will permanently delete all {printerList.length} printer{printerList.length !== 1 ? 's' : ''} from the database. This action cannot be undone.
+              This will permanently delete all {printerList.length} printer
+              {printerList.length !== 1 ? "s" : ""} from the database. This
+              action cannot be undone.
             </Text>
             <View style={styles.confirmButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.confirmButton, styles.cancelConfirmButton]}
                 onPress={() => setShowClearConfirm(false)}
               >
                 <Text style={styles.confirmButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.confirmButton, styles.deleteConfirmButton]}
                 onPress={handleClearAllPrinters}
               >
@@ -586,382 +641,5 @@ const PrinterSettings = () => {
     </ScrollView>
   );
 };
-
-// ... (keep the same styles as before)
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-    padding: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: "#f5f5f5",
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  mainTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: "#333",
-    flex: 1,
-  },
-  refreshButton: {
-    backgroundColor: "#6b7280",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  refreshButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  currentPrinterSection: {
-    backgroundColor: "#3b82f6",
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  currentPrinterHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  currentPrinterLabel: {
-    fontSize: 14,
-    color: "#fff",
-    fontWeight: '600',
-    opacity: 0.9,
-    marginRight: 8,
-  },
-  statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#4ade80",
-  },
-  currentPrinterName: {
-    fontSize: 20,
-    color: "#fff",
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  currentPrinterAddress: {
-    fontSize: 16,
-    color: "#fff",
-    opacity: 0.9,
-    marginBottom: 4,
-  },
-  clearCurrentButton: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    padding: 10,
-    borderRadius: 6,
-    marginTop: 8,
-    alignSelf: 'flex-start',
-  },
-  clearCurrentButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  formSection: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  formHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: "#333",
-  },
-  cancelEditText: {
-    color: "#ef4444",
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  label: {
-    fontSize: 16,
-    color: "#333",
-    marginTop: 16,
-    marginBottom: 5,
-    fontWeight: '500',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: "#f9fafb",
-    color: "#333",
-    fontSize: 16,
-  },
-  saveButton: {
-    backgroundColor: "#3b82f6",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-    minHeight: 52,
-    justifyContent: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  savedPrintersSection: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  manageButton: {
-    backgroundColor: "#6b7280",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  clearAllButton: {
-    backgroundColor: "#ef4444",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  manageButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  clearAllButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  printerItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f8fafc",
-    marginBottom: 8,
-    borderRadius: 8,
-  },
-  currentPrinterItem: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#3b82f6",
-    backgroundColor: "#dbeafe",
-  },
-  printerInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  printerName: {
-    fontSize: 16,
-    color: "#333",
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  printerAddress: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 4,
-  },
-  printerMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  currentBadge: {
-    backgroundColor: "#3b82f6",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  currentBadgeText: {
-    fontSize: 10,
-    color: "#fff",
-    fontWeight: '700',
-  },
-  printerActions: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  actionButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    minWidth: 50,
-    alignItems: 'center',
-  },
-  selectButton: {
-    backgroundColor: "#10b981",
-  },
-  editButton: {
-    backgroundColor: "#06b6d4",
-  },
-  deleteButton: {
-    backgroundColor: "#ef4444",
-  },
-  actionButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyStateIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    color: "#333",
-    marginBottom: 16,
-    textAlign: 'center',
-    fontWeight: '700',
-  },
-  searchInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: "#f9fafb",
-    color: "#333",
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  fullList: {
-    maxHeight: 400,
-  },
-  modalButtons: {
-    marginTop: 16,
-  },
-  secondaryButton: {
-    backgroundColor: "#6b7280",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  confirmModal: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    alignItems: 'center',
-  },
-  confirmTitle: {
-    fontSize: 20,
-    color: "#333",
-    marginBottom: 16,
-    textAlign: 'center',
-    fontWeight: '700',
-  },
-  confirmMessage: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  confirmButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  confirmButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelConfirmButton: {
-    backgroundColor: "#6b7280",
-  },
-  deleteConfirmButton: {
-    backgroundColor: "#ef4444",
-  },
-  confirmButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
 
 export default PrinterSettings;

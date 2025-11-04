@@ -1,19 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-    View, Text, TextInput, ScrollView, StyleSheet,
+    View, Text, TextInput, ScrollView,
     ActivityIndicator, Alert, FlatList, TouchableOpacity
 } from 'react-native';
 import axios from 'axios';
 import MainHeader from '../../Components/Header/Header'
-import { LoginContext } from '../../Context/LoginContext';
+import { LoginContext } from '../../../Context/LoginContext';
 import { useContext } from 'react';
 import Footer from '../../Components/Footer/Footer'
 import { Modal } from 'react-native';
 import BarcodeScannerModal from '../../Components/BarCodeScanner/BarcodeScannerModal';
 import { printEstimationSlip, useEstimationPreview } from '../../Components/PrintReceipt/PrintSlip';
-import { useApiBaseUrl } from '../../Config/Config';
+import { useApiBaseUrl } from '../../../Config/Config';
+import { useTheme } from "../../../Context/ThemeContext";
+import { createHomeStyles } from './HomeStyles'; // Adjust path as needed
 
 const HomeScreen = () => {
+    // 👇 Get theme from context
+    const { theme, isDarkMode } = useTheme();
+    
+    // 👇 Create styles based on current theme object
+    const styles = createHomeStyles(theme);
+
     // State declarations
     const [ITEMID, setITEMID] = useState('');
     const [TAGNO, setTAGNO] = useState('');
@@ -630,30 +638,29 @@ const HomeScreen = () => {
     };
 
     // Print handler
-// In your HomeScreen, update the handlePrint function:
-const handlePrint = async () => {
-  console.log('🖨️ Print button clicked, estBatchNo:', estBatchNo);
-  console.log('👤 Username:', username);
-  console.log('🌐 API Base URL:', API_BASE_URL);
-  
-  if (!estBatchNo) {
-    Alert.alert("No slip available", "Please submit first to generate a slip");
-    return;
-  }
+    const handlePrint = async () => {
+        console.log('🖨️ Print button clicked, estBatchNo:', estBatchNo);
+        console.log('👤 Username:', username);
+        console.log('🌐 API Base URL:', API_BASE_URL);
+        
+        if (!estBatchNo) {
+            Alert.alert("No slip available", "Please submit first to generate a slip");
+            return;
+        }
 
-  if (!API_BASE_URL) {
-    Alert.alert("Configuration Error", "API base URL is not configured");
-    return;
-  }
+        if (!API_BASE_URL) {
+            Alert.alert("Configuration Error", "API base URL is not configured");
+            return;
+        }
 
-  try {
-    console.log('📞 Calling printEstimationSlip...');
-    await printEstimationSlip(estBatchNo, username, API_BASE_URL);
-  } catch (err) {
-    console.error("❌ Print error:", err);
-    Alert.alert("Print Failed", err.message || "Unable to generate slip");
-  }
-};
+        try {
+            console.log('📞 Calling printEstimationSlip...');
+            await printEstimationSlip(estBatchNo, username, API_BASE_URL);
+        } catch (err) {
+            console.error("❌ Print error:", err);
+            Alert.alert("Print Failed", err.message || "Unable to generate slip");
+        }
+    };
 
     // Calculate totals
     const totalGross = tableData.reduce((acc, row) => acc + calculateGrossAmount(row), 0);
@@ -662,7 +669,7 @@ const handlePrint = async () => {
 
     return (
         <>
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
                 <MainHeader />
                 <View style={styles.container}>
                     {/* Totals Display */}
@@ -700,6 +707,7 @@ const handlePrint = async () => {
                                 ref={itemIdInputRef}
                                 style={styles.input}
                                 placeholder="Item ID"
+                                placeholderTextColor={theme.COLORS.placeholder}
                                 value={ITEMID}
                                 onChangeText={(text) => {
                                     setITEMID(text);
@@ -727,6 +735,7 @@ const handlePrint = async () => {
                                 ref={tagInputRef}
                                 style={styles.input}
                                 placeholder="Tag No"
+                                placeholderTextColor={theme.COLORS.placeholder}
                                 value={TAGNO}
                                 onChangeText={setTAGNO}
                                 onSubmitEditing={() => empInputRef.current?.focus()}
@@ -748,6 +757,7 @@ const handlePrint = async () => {
                                 ref={empInputRef}
                                 style={styles.input}
                                 placeholder="Emp ID"
+                                placeholderTextColor={theme.COLORS.placeholder}
                                 value={emp}
                                 onChangeText={setEmp}
                                 onSubmitEditing={fetchData}
@@ -781,7 +791,7 @@ const handlePrint = async () => {
 
                     {/* Loading Indicator */}
                     {loading && (
-                        <ActivityIndicator size="large" color="#7b1fa2" style={styles.loader} />
+                        <ActivityIndicator size="large" color={theme.COLORS.primary} style={styles.loader} />
                     )}
 
                     {/* Data Table */}
@@ -831,7 +841,7 @@ const handlePrint = async () => {
                     {/* Action Buttons */}
                     <View style={styles.actionButtonsContainer}>
                         <TouchableOpacity
-                            style={styles.submitButton}
+                            style={[styles.submitButton, loading && styles.disabledButton]}
                             onPress={async () => {
                                 const batchNo = await submitData();
                                 if (batchNo) {
@@ -847,7 +857,7 @@ const handlePrint = async () => {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.submitButton, styles.printButton]}
+                            style={[styles.submitButton, styles.printButton, !estBatchNo && styles.disabledButton]}
                             onPress={handlePrint}
                             disabled={!estBatchNo}
                         >
@@ -871,145 +881,5 @@ const handlePrint = async () => {
         </>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 16,
-    },
-    inputRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 14,
-    },
-    inputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-        marginHorizontal: 4,
-    },
-    input: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: '#ba68c8',
-        borderRadius: 6,
-        backgroundColor: '#f8eafa',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        fontSize: 14,
-        color: '#4a148c',
-    },
-    scanButton: {
-        paddingLeft: 6,
-    },
-    scanIcon: {
-        fontSize: 15,
-    },
-    dropdown: {
-        backgroundColor: '#fff',
-        borderColor: '#ba68c8',
-        borderWidth: 1,
-        borderRadius: 6,
-        maxHeight: 140,
-        marginTop: 2,
-        marginBottom: 10,
-        zIndex: 10,
-        elevation: 5,
-    },
-    dropdownItem: {
-        padding: 10,
-        borderBottomColor: '#e1bee7',
-        borderBottomWidth: 1,
-    },
-    dropdownText: {
-        color: '#4a148c',
-    },
-    totalsContainer: {
-        backgroundColor: '#f3f3f3',
-        borderRadius: 8,
-        padding: 10,
-        marginBottom: 10
-    },
-    totalsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-    },
-    totalItem: {
-        alignItems: 'center',
-    },
-    totalLabel: {
-        fontSize: 13,
-        color: '#555',
-    },
-    totalValue: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#000',
-    },
-    grandTotal: {
-        fontWeight: 'bold',
-    },
-    loader: {
-        marginVertical: 20,
-    },
-    tableContainer: {
-        marginBottom: 10,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        backgroundColor: '#6a1b9a',
-        paddingVertical: 6,
-    },
-    headerCell: {
-        color: '#fff',
-        fontWeight: 'bold',
-        paddingHorizontal: 10,
-        minWidth: 80,
-        textAlign: 'center',
-    },
-    dataRow: {
-        flexDirection: 'row',
-        borderBottomWidth: 1,
-        borderColor: '#ddd',
-        paddingVertical: 6,
-    },
-    cell: {
-        minWidth: 80,
-        textAlign: 'center',
-        paddingHorizontal: 10,
-        color: '#4a148c',
-        fontSize: 12,
-    },
-    trannoContainer: {
-        marginTop: 12,
-        alignItems: 'center',
-    },
-    trannoText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#4a148c',
-    },
-    actionButtonsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 20,
-    },
-    submitButton: {
-        backgroundColor: '#7b1fa2',
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: 'center',
-        width: '48%',
-    },
-    printButton: {
-        backgroundColor: '#4a148c',
-    },
-    submitButtonText: {
-        color: '#fff',
-        fontWeight: '700',
-        fontSize: 12,
-    },
-});
 
 export default HomeScreen;

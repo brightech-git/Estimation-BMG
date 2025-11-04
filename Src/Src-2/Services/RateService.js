@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useApiBaseUrl } from '../Config/Config';
+import { useApiBaseUrl } from '../../Config/Config';
 
 const useServiceRates = () => {
   const [rates, setRates] = useState({ SILVERRATE: 0, GOLDRATE: 0 });

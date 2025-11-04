@@ -1,6 +1,6 @@
 // Src/Services/PrinterService.js
 import axios from "axios";
-import { useApiBaseUrl } from "../Config/Config";
+import { useApiBaseUrl } from "../../Config/Config";
 
 // ✅ React Hook to handle all Printer API calls
 export const usePrinterService = () => {

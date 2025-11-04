@@ -1,10 +1,23 @@
-// App.js
+// App.js - Simplified Version
 import React from 'react';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import StackNavigator from './Src/Src-1/Navigation/StackNavigator'; // keep your original path
+import StackNavigator from './Src/Navigation/StackNavigator';
+import { ThemeProvider, useTheme } from './Src/Context/ThemeContext';
+
+// Wrapper component for theme-aware styling
+const AppWrapper = () => {
+  const { theme, isDarkMode } = useTheme();
+  
+  return (
+    <View style={[styles.container, { backgroundColor: theme.COLORS.background }]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StackNavigator />
+    </View>
+  );
+};
 
 export default function App() {
   // Load custom fonts
@@ -27,10 +40,11 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
-      <StackNavigator />
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppWrapper />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
